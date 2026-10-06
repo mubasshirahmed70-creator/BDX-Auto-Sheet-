@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">BDX Auto Sheet</string>
+    <string name="service_title">CLIPBOARD AUTO SHEET</string>
+    <string name="service_subtitle">Floating Clipboard-to-Spreadsheet Automation</string>
+    <string name="start_floating_bubble">START FLOATING BUBBLE</string>
+    <string name="stop_service">STOP SERVICE</string>
+    <string name="open_sheet">OPEN SHEET</string>
+    <string name="setup_configuration">SETUP / CONFIGURATION</string>
+    <string name="download_xlsx">DOWNLOAD XLSX</string>
+    <string name="reset_all">RESET ALL</string>
+    <string name="save_mode">Save Mode:</string>
+    <string name="local_app_space_mode">Local App Space Mode</string>
+    <string name="column_buttons_label">Column Buttons (Comma Separated)</string>
+    <string name="button_size_label">Button Size (Drag to Change)</string>
+    <string name="save_and_configure">SAVE &amp; CONFIGURE</string>
+    <string name="notification_channel_name">Floating Bubble Service</string>
+    <string name="notification_channel_desc">Shows active floating column bubble status</string>
+    <string name="notification_title">BDX Auto Sheet is Running</string>
+    <string name="notification_text">Tap column bubbles over any app to insert clipboard data</string>
+</resources>

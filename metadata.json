@@ -1,0 +1,6 @@
+{
+  "name": "BDX Auto Sheet",
+  "description": "Clipboard to spreadsheet automation tool with floating column bubbles, round logic, and XLSX export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
