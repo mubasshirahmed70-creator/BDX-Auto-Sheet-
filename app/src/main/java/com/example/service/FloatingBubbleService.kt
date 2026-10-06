@@ -55,6 +55,8 @@ class FloatingBubbleService : Service() {
     private var lastProcessedRowForRoundReset = -1
     private val roundCompleteHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
+    private var floatingInboxWindow: FloatingInboxWindow? = null
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -206,7 +208,6 @@ class FloatingBubbleService : Service() {
             setStroke(dpToPx(2.5f), Color.WHITE)
         }
         layout.background = backgroundDrawable
-        layout.elevation = dpToPx(10).toFloat()
 
         val text = TextView(this).apply {
             text = "R$currentRow\n▼"
@@ -232,30 +233,27 @@ class FloatingBubbleService : Service() {
     private fun createExpandedView(state: SheetState, buttonSizePx: Int): View {
         val isHorizontal = state.config.isHorizontalBubbleLayout
 
+        // Completely transparent container so no rectangular border or shadow box is visible
         val mainLayout = LinearLayout(this).apply {
             orientation = if (isHorizontal) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            val padding = dpToPx(6)
-            setPadding(padding, padding, padding, padding)
-            val bg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(28).toFloat()
-                setColor(Color.parseColor("#E60F172A")) // Translucent dark navy
-                setStroke(dpToPx(1.5f), Color.parseColor("#475569"))
-            }
-            background = bg
-            elevation = dpToPx(10).toFloat()
+            setPadding(dpToPx(2), dpToPx(2), dpToPx(2), dpToPx(2))
+            background = null
         }
 
-        // 1. Dedicated Visual Drag Handle Grip
+        // 1. Sleek Drag Handle Grip
         val dragGrip = createDragHandleView(isHorizontal)
         mainLayout.addView(dragGrip)
 
-        // 2. Control / Minimize / Round Header Button
+        // 2. Control / Minimize / Round Header Button ("R1", "R2"...)
         val headerButton = createHeaderControlView(buttonSizePx, state.currentRow)
         mainLayout.addView(headerButton)
 
-        // 3. Column Buttons (Uniform base color, changes to Green with checkmark when pasted in active round)
+        // 3. Special MailGen Inbox Bubble Button (✉️)
+        val inboxButton = createSpecialInboxButton(buttonSizePx)
+        mainLayout.addView(inboxButton)
+
+        // 4. Column Buttons (Uniform base color, changes to Green with checkmark when pasted in active round)
         val columns = state.config.columns
         val currentRow = state.currentRow
         val cells = state.cells
@@ -284,25 +282,25 @@ class FloatingBubbleService : Service() {
 
     private fun createDragHandleView(isHorizontal: Boolean): View {
         return View(this).apply {
-            val width = if (isHorizontal) dpToPx(8) else dpToPx(28)
-            val height = if (isHorizontal) dpToPx(28) else dpToPx(8)
+            val width = if (isHorizontal) dpToPx(6) else dpToPx(26)
+            val height = if (isHorizontal) dpToPx(26) else dpToPx(6)
             val lp = LinearLayout.LayoutParams(width, height).apply {
-                val margin = dpToPx(4)
+                val margin = dpToPx(3)
                 setMargins(margin, margin, margin, margin)
             }
             layoutParams = lp
 
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(4).toFloat()
-                setColor(Color.parseColor("#64748B")) // Slate grip
+                cornerRadius = dpToPx(3).toFloat()
+                setColor(Color.parseColor("#94A3B8")) // Clean Slate grip
             }
             background = bg
         }
     }
 
     private fun createHeaderControlView(sizePx: Int, currentRow: Int): View {
-        val controlSize = (sizePx * 0.8).toInt().coerceAtLeast(dpToPx(40))
+        val controlSize = (sizePx * 0.85).toInt().coerceAtLeast(dpToPx(40))
         val layout = FrameLayout(this).apply {
             val lp = LinearLayout.LayoutParams(controlSize, controlSize).apply {
                 val margin = dpToPx(3)
@@ -314,7 +312,7 @@ class FloatingBubbleService : Service() {
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(Color.parseColor("#334155")) // Slate
-            setStroke(dpToPx(1.5f), Color.parseColor("#94A3B8"))
+            setStroke(dpToPx(2f), Color.WHITE)
         }
         layout.background = bg
 
@@ -338,6 +336,59 @@ class FloatingBubbleService : Service() {
         }
 
         return layout
+    }
+
+    /**
+     * Special circular floating bubble for MailGen Inbox reading.
+     * Clicking it opens/toggles the compact draggable Inbox Window.
+     */
+    private fun createSpecialInboxButton(sizePx: Int): View {
+        val buttonSize = (sizePx * 0.9).toInt().coerceAtLeast(dpToPx(42))
+        val layout = FrameLayout(this).apply {
+            val lp = LinearLayout.LayoutParams(buttonSize, buttonSize).apply {
+                val margin = dpToPx(3)
+                setMargins(margin, margin, margin, margin)
+            }
+            layoutParams = lp
+        }
+
+        val bg = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            colors = intArrayOf(Color.parseColor("#8B5CF6"), Color.parseColor("#6366F1")) // Vibrant Violet / Indigo
+            orientation = GradientDrawable.Orientation.TL_BR
+            setStroke(dpToPx(2f), Color.WHITE)
+        }
+        layout.background = bg
+
+        val tv = TextView(this).apply {
+            text = "✉️"
+            textSize = 18f
+            gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        layout.addView(tv)
+
+        layout.setOnClickListener {
+            toggleFloatingInboxWindow()
+        }
+
+        return layout
+    }
+
+    private fun toggleFloatingInboxWindow() {
+        if (floatingInboxWindow?.isShowing == true) {
+            floatingInboxWindow?.dismiss()
+        } else {
+            if (floatingInboxWindow == null) {
+                floatingInboxWindow = FloatingInboxWindow(this, windowManager) {
+                    // Closed callback
+                }
+            }
+            floatingInboxWindow?.show()
+        }
     }
 
     private fun createColumnButton(
@@ -446,6 +497,8 @@ class FloatingBubbleService : Service() {
         _isRunning.value = false
         roundCompleteHandler.removeCallbacksAndMessages(null)
         stateCollectJob?.cancel()
+        floatingInboxWindow?.dismiss()
+        floatingInboxWindow = null
         overlayRootView?.let { root ->
             try {
                 windowManager.removeView(root)

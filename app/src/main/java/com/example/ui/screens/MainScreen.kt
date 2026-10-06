@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.BubbleChart
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.TableChart
@@ -95,6 +96,11 @@ fun MainScreen(
         )
 
         Spacer(modifier = Modifier.height(24.dp))
+
+        // MailGen Inbox & OTP Feature Card
+        MailGenInfoCard(isServiceRunning = isServiceRunning)
+
+        Spacer(modifier = Modifier.height(20.dp))
 
         // Round Logic Info Card
         RoundLogicInfoCard(sheetState = sheetState)
@@ -366,6 +372,88 @@ private fun RoundLogicInfoCard(sheetState: SheetState) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 18.sp
             )
+        }
+    }
+}
+
+@Composable
+private fun MailGenInfoCard(isServiceRunning: Boolean) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF6366F1).copy(alpha = 0.10f)
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFF6366F1),
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Email,
+                            contentDescription = "MailGen Inbox",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+                Text(
+                    text = "MailGen Hotmail & OTP Tool",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "• Tap the purple ✉️ bubble over any app to open the compact floating inbox window.\n" +
+                        "• Paste your full Hotmail data → It automatically extracts the email address with a 1-tap Copy button.\n" +
+                        "• Tap 'GET INBOX' to fetch messages and 1-tap copy verification codes (OTP) instantly.\n" +
+                        "• The window is freely draggable and doesn't block underlying touches so you can multitask freely!",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 18.sp
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (isServiceRunning) Color(0xFF10B981).copy(alpha = 0.15f) else Color(0xFF64748B).copy(alpha = 0.15f)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(if (isServiceRunning) Color(0xFF10B981) else Color(0xFF94A3B8))
+                    )
+                    Text(
+                        text = if (isServiceRunning)
+                            "Active: Look for the purple ✉️ bubble floating on your screen"
+                        else
+                            "Inactive: Tap 'START FLOATING BUBBLE' above to launch",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isServiceRunning) Color(0xFF047857) else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }
