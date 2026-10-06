@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import android.content.Context
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,7 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.BubbleChart
-import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.TableChart
@@ -42,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -95,15 +97,10 @@ fun MainScreen(
             onOpenSetup = onNavigateToSetup
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // MailGen Inbox & OTP Feature Card
-        MailGenInfoCard(isServiceRunning = isServiceRunning)
-
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Round Logic Info Card
-        RoundLogicInfoCard(sheetState = sheetState)
+        // Unified Guide Card
+        HowToUseAppCard(sheetState = sheetState)
 
         Spacer(modifier = Modifier.height(32.dp))
     }
@@ -116,33 +113,33 @@ private fun AppHeader(isServiceRunning: Boolean) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primaryContainer,
-            modifier = Modifier.size(54.dp)
+            shape = RoundedCornerShape(18.dp),
+            shadowElevation = 4.dp,
+            color = Color.Transparent,
+            modifier = Modifier.size(76.dp)
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Assignment,
-                    contentDescription = "BDX Auto Sheet",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(30.dp)
-                )
-            }
+            Image(
+                painter = painterResource(R.drawable.app_logo),
+                contentDescription = "BDX Auto Sheet Logo",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(18.dp))
+            )
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = stringResource(R.string.service_title),
+            text = "BDX Auto Sheet",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Black,
-            letterSpacing = 1.2.sp,
+            letterSpacing = 0.8.sp,
             color = MaterialTheme.colorScheme.onBackground
         )
 
         Text(
-            text = "BDX Auto Sheet",
-            style = MaterialTheme.typography.titleSmall,
+            text = stringResource(R.string.service_subtitle),
+            style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.primary
         )
@@ -346,42 +343,11 @@ private fun LargeActionButton(
 }
 
 @Composable
-private fun RoundLogicInfoCard(sheetState: SheetState) {
+private fun HowToUseAppCard(sheetState: SheetState) {
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "How Round Logic Works",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            val firstCol = sheetState.config.columns.firstOrNull() ?: "A"
-            Text(
-                text = "• A round consists of columns: ${sheetState.config.columns.joinToString(" → ")}\n" +
-                        "• Tapping '$firstCol' (the first column) advances to the next round/row position.\n" +
-                        "• Skipped columns in any round remain empty.\n" +
-                        "• Floating bubble overlays other apps so you can copy and tap on the fly!",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                lineHeight = 18.sp
-            )
-        }
-    }
-}
-
-@Composable
-private fun MailGenInfoCard(isServiceRunning: Boolean) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF6366F1).copy(alpha = 0.10f)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
         ),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -392,68 +358,38 @@ private fun MailGenInfoCard(isServiceRunning: Boolean) {
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = Color(0xFF6366F1),
-                    modifier = Modifier.size(32.dp)
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(30.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = Icons.Default.Email,
-                            contentDescription = "MailGen Inbox",
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "Quick Guide",
                             tint = Color.White,
                             modifier = Modifier.size(18.dp)
                         )
                     }
                 }
                 Text(
-                    text = "MailGen Hotmail & OTP Tool",
+                    text = "How to Use This App",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
+            val firstCol = sheetState.config.columns.firstOrNull() ?: "A"
             Text(
-                text = "• Tap the purple ✉️ bubble over any app to open the compact floating inbox window.\n" +
-                        "• Paste your full Hotmail data → It automatically extracts the email address with a 1-tap Copy button.\n" +
-                        "• Tap 'GET INBOX' to fetch messages and 1-tap copy verification codes (OTP) instantly.\n" +
-                        "• The window is freely draggable and doesn't block underlying touches so you can multitask freely!",
+                text = "• Floating Bubbles: Tap 'START FLOATING BUBBLE' to show bubbles on the right edge of your screen. Tap any column bubble (${sheetState.config.columns.joinToString(", ")}) over any app to insert copied text.\n\n" +
+                        "• Round Progression: Data is recorded row by row. Tapping '$firstCol' (the first column) advances to the next round/row automatically.\n\n" +
+                        "• Hotmail & OTP Inbox: Tap the purple ✉️ bubble to paste Hotmail data, instantly 1-tap copy the email address, and fetch inbox verification codes.\n\n" +
+                        "• Sheet & Export: Tap 'OPEN SHEET' to review and edit cells, or export everything to Excel (.xlsx) anytime.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 18.sp
             )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = if (isServiceRunning) Color(0xFF10B981).copy(alpha = 0.15f) else Color(0xFF64748B).copy(alpha = 0.15f)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(if (isServiceRunning) Color(0xFF10B981) else Color(0xFF94A3B8))
-                    )
-                    Text(
-                        text = if (isServiceRunning)
-                            "Active: Look for the purple ✉️ bubble floating on your screen"
-                        else
-                            "Inactive: Tap 'START FLOATING BUBBLE' above to launch",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (isServiceRunning) Color(0xFF047857) else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
         }
     }
 }

@@ -10,6 +10,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -31,6 +34,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.screens.MainScreen
 import com.example.ui.screens.SetupScreen
 import com.example.ui.screens.SheetScreen
+import com.example.ui.screens.SplashScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.viewmodel.MainViewModel
 import com.example.viewmodel.UiEvent
@@ -38,6 +42,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 enum class AppScreen {
+    SPLASH,
     MAIN,
     SHEET,
     SETUP
@@ -86,7 +91,11 @@ class MainActivity : ComponentActivity() {
                 viewModel = viewModel<MainViewModel>()
                 val snackbarHostState = remember { SnackbarHostState() }
                 val scope = rememberCoroutineScope()
-                var currentScreen by remember { mutableStateOf(AppScreen.MAIN) }
+                var currentScreen by remember {
+                    mutableStateOf(
+                        if (!MainViewModel.hasShownSplashThisSession) AppScreen.SPLASH else AppScreen.MAIN
+                    )
+                }
 
                 LaunchedEffect(Unit) {
                     viewModel.uiEvents.collect { event ->
@@ -112,13 +121,20 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Scaffold(
-                    snackbarHost = { SnackbarHost(snackbarHostState) },
+                    snackbarHost = {
+                        if (currentScreen != AppScreen.SPLASH) {
+                            SnackbarHost(snackbarHostState)
+                        }
+                    },
                     modifier = Modifier.fillMaxSize()
                 ) { innerPadding ->
                     AnimatedContent(
                         targetState = currentScreen,
                         transitionSpec = {
-                            if (targetState.ordinal > initialState.ordinal) {
+                            if (initialState == AppScreen.SPLASH || targetState == AppScreen.SPLASH) {
+                                fadeIn(animationSpec = tween(400)) togetherWith
+                                        fadeOut(animationSpec = tween(400))
+                            } else if (targetState.ordinal > initialState.ordinal) {
                                 slideInHorizontally { width -> width } togetherWith
                                         slideOutHorizontally { width -> -width }
                             } else {
@@ -129,9 +145,20 @@ class MainActivity : ComponentActivity() {
                         label = "ScreenTransition",
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(innerPadding)
+                            .then(
+                                if (currentScreen != AppScreen.SPLASH) Modifier.padding(innerPadding)
+                                else Modifier
+                            )
                     ) { screen ->
                         when (screen) {
+                            AppScreen.SPLASH -> {
+                                SplashScreen(
+                                    onSplashFinished = {
+                                        viewModel.markSplashCompleted()
+                                        currentScreen = AppScreen.MAIN
+                                    }
+                                )
+                            }
                             AppScreen.MAIN -> {
                                 MainScreen(
                                     viewModel = viewModel,

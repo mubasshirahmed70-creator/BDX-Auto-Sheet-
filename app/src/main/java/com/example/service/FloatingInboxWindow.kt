@@ -12,6 +12,7 @@ import android.graphics.drawable.RippleDrawable
 import android.content.res.ColorStateList
 import android.os.Build
 import android.text.Editable
+import android.text.InputType
 import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.Gravity
@@ -19,6 +20,8 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
@@ -82,18 +85,22 @@ class FloatingInboxWindow(
         val screenWidth = displayMetrics.widthPixels
         val windowWidth = (dpToPx(320)).coerceAtMost((screenWidth * 0.90f).toInt())
 
-        // FLAG_NOT_TOUCH_MODAL allows touches outside the window to be sent to windows behind it!
-        // We do NOT use FLAG_NOT_FOCUSABLE so the EditText can accept input, but outside touches pass through.
+        // SMART DYNAMIC FOCUS:
+        // Default to FLAG_NOT_FOCUSABLE so that keyboard typing in other apps (Chrome, Notes, WhatsApp)
+        // is 100% unrestricted and never blocked!
+        // Focus is only requested dynamically when the user explicitly taps this input box.
         val params = WindowManager.LayoutParams(
             windowWidth,
             WindowManager.LayoutParams.WRAP_CONTENT,
             layoutFlag,
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                     WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = dpToPx(16)
+            // Start on the right side of the screen
+            x = (screenWidth - windowWidth - dpToPx(12)).coerceAtLeast(0)
             y = dpToPx(120)
         }
         windowParams = params
@@ -110,8 +117,50 @@ class FloatingInboxWindow(
         }
     }
 
+    /**
+     * Dynamically acquires keyboard focus only when user taps the input box.
+     */
+    fun requestInputFocus() {
+        val p = windowParams ?: return
+        val v = rootView ?: return
+        if ((p.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) != 0) {
+            p.flags = p.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+            try {
+                windowManager.updateViewLayout(v, p)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        inputEditText.post {
+            inputEditText.requestFocus()
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.showSoftInput(inputEditText, InputMethodManager.SHOW_IMPLICIT)
+        }
+    }
+
+    /**
+     * Releases keyboard focus back to background apps immediately.
+     */
+    fun releaseInputFocus() {
+        val p = windowParams ?: return
+        val v = rootView ?: return
+        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(inputEditText.windowToken, 0)
+        inputEditText.clearFocus()
+
+        if ((p.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) == 0) {
+            p.flags = p.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            try {
+                windowManager.updateViewLayout(v, p)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     fun dismiss() {
         if (!isShowing) return
+        releaseInputFocus()
         rootView?.let { view ->
             try {
                 windowManager.removeView(view)
@@ -142,6 +191,14 @@ class FloatingInboxWindow(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
+
+            // When user taps anywhere on background or outside, immediately release focus to other apps
+            setOnTouchListener { _, event ->
+                if (event.action == MotionEvent.ACTION_OUTSIDE || event.action == MotionEvent.ACTION_DOWN) {
+                    releaseInputFocus()
+                }
+                false
+            }
         }
 
         // 1. Draggable Header Bar
@@ -218,7 +275,25 @@ class FloatingInboxWindow(
             background = editBg
             isSingleLine = false
             maxLines = 2
+            imeOptions = EditorInfo.IME_ACTION_DONE
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+
+            // When tapped, request keyboard focus dynamically
+            setOnTouchListener { _, event ->
+                if (event.action == MotionEvent.ACTION_UP) {
+                    requestInputFocus()
+                }
+                false
+            }
+
+            // When "Done" is pressed on keyboard, immediately release focus back to other apps
+            setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_DONE) {
+                    releaseInputFocus()
+                    true
+                } else false
+            }
         }
 
         val pasteButton = TextView(context).apply {
@@ -242,6 +317,8 @@ class FloatingInboxWindow(
             }
             setOnClickListener {
                 pasteFromClipboard()
+                // Keep focus released so soft keyboard doesn't open unnecessarily
+                releaseInputFocus()
             }
         }
 
@@ -473,6 +550,7 @@ class FloatingInboxWindow(
     }
 
     private fun executeGetInbox() {
+        releaseInputFocus()
         val inputData = inputEditText.text.toString().trim()
         if (inputData.isEmpty()) {
             Toast.makeText(context, "Please paste or enter Hotmail data first", Toast.LENGTH_SHORT).show()
@@ -738,6 +816,7 @@ class FloatingInboxWindow(
         dragView.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    releaseInputFocus()
                     initialX = params.x
                     initialY = params.y
                     initialTouchX = event.rawX

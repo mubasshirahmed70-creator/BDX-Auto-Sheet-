@@ -242,6 +242,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     companion object {
+        var hasShownSplashThisSession: Boolean = false
+
         fun hasOverlayPermission(context: Context): Boolean {
             return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 Settings.canDrawOverlays(context)
@@ -249,5 +251,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 true
             }
         }
+    }
+
+    fun markSplashCompleted() {
+        hasShownSplashThisSession = true
     }
 }

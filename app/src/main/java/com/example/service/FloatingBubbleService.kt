@@ -124,6 +124,7 @@ class FloatingBubbleService : Service() {
             WindowManager.LayoutParams.TYPE_PHONE
         }
 
+        val screenWidth = resources.displayMetrics.widthPixels
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -133,7 +134,8 @@ class FloatingBubbleService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = dpToPx(16)
+            // Start on the right side of the screen
+            x = (screenWidth - dpToPx(64)).coerceAtLeast(0)
             y = dpToPx(160)
         }
         windowParams = params
