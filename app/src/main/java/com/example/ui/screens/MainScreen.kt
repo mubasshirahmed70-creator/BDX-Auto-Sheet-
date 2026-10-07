@@ -1,6 +1,9 @@
 package com.example.ui.screens
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.BubbleChart
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
@@ -29,6 +33,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -67,42 +73,80 @@ fun MainScreen(
 
     val scrollState = rememberScrollState()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(scrollState)
-            .padding(horizontal = 20.dp, vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // App Header
-        AppHeader(isServiceRunning = isServiceRunning)
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .verticalScroll(scrollState)
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // App Header
+            AppHeader(isServiceRunning = isServiceRunning)
 
-        Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-        // Live Status & Metrics Card
-        StatusMetricsCard(
-            sheetState = sheetState,
-            isServiceRunning = isServiceRunning
-        )
+            // Live Status & Metrics Card
+            StatusMetricsCard(
+                sheetState = sheetState,
+                isServiceRunning = isServiceRunning
+            )
 
-        Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-        // Primary Action Buttons
-        ActionButtonsSection(
-            isServiceRunning = isServiceRunning,
-            onStartBubble = { viewModel.checkAndStartFloatingBubble(context) },
-            onStopService = { viewModel.stopFloatingBubble(context) },
-            onOpenSheet = onNavigateToSheet,
-            onOpenSetup = onNavigateToSetup
-        )
+            // Primary Action Buttons
+            ActionButtonsSection(
+                isServiceRunning = isServiceRunning,
+                onStartBubble = { viewModel.checkAndStartFloatingBubble(context) },
+                onStopService = { viewModel.stopFloatingBubble(context) },
+                onOpenSheet = onNavigateToSheet,
+                onOpenSetup = onNavigateToSetup
+            )
 
-        Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-        // Unified Guide Card
-        HowToUseAppCard(sheetState = sheetState)
+            // Unified Guide Card
+            HowToUseAppCard(sheetState = sheetState)
 
-        Spacer(modifier = Modifier.height(32.dp))
+            // Extra space so floating button never covers bottom content
+            Spacer(modifier = Modifier.height(76.dp))
+        }
+
+        // Floating "Join Us" Telegram Channel Button
+        ExtendedFloatingActionButton(
+            onClick = {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/bdxtechnical")).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Cannot open Telegram: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            },
+            containerColor = Color(0xFF0088CC), // Official Telegram Blue
+            contentColor = Color.White,
+            shape = RoundedCornerShape(24.dp),
+            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 18.dp)
+                .testTag("join_us_telegram_button")
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.Send,
+                contentDescription = "Join Us Telegram Channel",
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "Join Us",
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.5.sp,
+                letterSpacing = 0.3.sp
+            )
+        }
     }
 }
 

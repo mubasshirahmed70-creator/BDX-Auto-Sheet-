@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
@@ -18,6 +19,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -130,7 +132,8 @@ class FloatingBubbleService : Service() {
             WindowManager.LayoutParams.WRAP_CONTENT,
             layoutFlag,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -537,8 +540,9 @@ class FloatingBubbleService : Service() {
 }
 
 /**
- * Custom FrameLayout that intercepts drag gestures seamlessly while still letting
- * child buttons receive clicks when not dragging. Allows dragging anywhere on screen!
+ * Custom FrameLayout that intercepts drag gestures seamlessly while ensuring ZERO
+ * interference with background apps. Any touch that falls on transparent or empty
+ * areas passes directly through to the underlying application.
  */
 @SuppressLint("ViewConstructor")
 class DraggableOverlayLayout(
@@ -553,6 +557,46 @@ class DraggableOverlayLayout(
     private var initialTouchX = 0f
     private var initialTouchY = 0f
     private var isDragging = false
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        // Zero Invisible Wall:
+        // If the touch lands on transparent/empty space outside interactive child buttons,
+        // do not consume it! Return false so Android delivers it directly to the underlying app!
+        if (!isDragging && !isTouchWithinInteractiveChild(ev.x, ev.y)) {
+            return false
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun isTouchWithinInteractiveChild(x: Float, y: Float): Boolean {
+        val rect = Rect()
+        return findInteractiveChildAt(this, x, y, rect)
+    }
+
+    private fun findInteractiveChildAt(parent: ViewGroup, x: Float, y: Float, rect: Rect): Boolean {
+        val count = parent.childCount
+        for (i in 0 until count) {
+            val child = parent.getChildAt(i) ?: continue
+            if (child.visibility != View.VISIBLE) continue
+
+            child.getHitRect(rect)
+            if (rect.contains(x.toInt(), y.toInt())) {
+                if (child is ViewGroup) {
+                    val localX = x - child.left
+                    val localY = y - child.top
+                    if (findInteractiveChildAt(child, localX, localY, Rect())) {
+                        return true
+                    }
+                    if (child.isClickable || child.hasOnClickListeners()) {
+                        return true
+                    }
+                } else {
+                    return true
+                }
+            }
+        }
+        return false
+    }
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
         when (ev.action) {
@@ -577,38 +621,28 @@ class DraggableOverlayLayout(
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(ev: MotionEvent): Boolean {
+        if (!isDragging) {
+            // Never consume non-drag touches at container level
+            return false
+        }
         when (ev.action) {
-            MotionEvent.ACTION_DOWN -> {
-                initialX = layoutParams.x
-                initialY = layoutParams.y
-                initialTouchX = ev.rawX
-                initialTouchY = ev.rawY
-                isDragging = false
-                return true
-            }
             MotionEvent.ACTION_MOVE -> {
                 val dx = (ev.rawX - initialTouchX).toInt()
                 val dy = (ev.rawY - initialTouchY).toInt()
-                if (isDragging || abs(dx) > touchSlop || abs(dy) > touchSlop) {
-                    isDragging = true
-                    layoutParams.x = initialX + dx
-                    layoutParams.y = initialY + dy
-                    try {
-                        windowManager.updateViewLayout(this, layoutParams)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                    return true
+                layoutParams.x = initialX + dx
+                layoutParams.y = initialY + dy
+                try {
+                    windowManager.updateViewLayout(this, layoutParams)
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
+                return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                val wasDragging = isDragging
                 isDragging = false
-                if (wasDragging) {
-                    return true
-                }
+                return true
             }
         }
-        return super.onTouchEvent(ev)
+        return false
     }
 }
