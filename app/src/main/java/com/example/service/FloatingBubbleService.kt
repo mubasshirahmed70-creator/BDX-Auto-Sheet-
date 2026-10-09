@@ -202,20 +202,24 @@ class FloatingBubbleService : Service() {
     }
 
     private fun createMinimizedPillView(sizePx: Int, currentRow: Int): View {
-        val minSize = (sizePx * 0.95).toInt().coerceAtLeast(dpToPx(48))
+        val controlSize = (sizePx * 0.85).toInt().coerceAtLeast(dpToPx(40))
         val layout = FrameLayout(this).apply {
-            layoutParams = FrameLayout.LayoutParams(minSize, minSize)
+            val lp = FrameLayout.LayoutParams(controlSize, controlSize).apply {
+                val margin = dpToPx(3)
+                setMargins(margin, margin, margin, margin)
+            }
+            layoutParams = lp
         }
 
         val backgroundDrawable = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setColor(Color.parseColor("#1E3A8A")) // Dark Royal Blue
-            setStroke(dpToPx(2.5f), Color.WHITE)
+            setColor(Color.parseColor("#334155")) // Exact same Slate color
+            setStroke(dpToPx(2f), Color.WHITE)
         }
         layout.background = backgroundDrawable
 
         val text = TextView(this).apply {
-            text = "R$currentRow\n▼"
+            text = "R$currentRow"
             setTextColor(Color.WHITE)
             textSize = 12f
             typeface = Typeface.DEFAULT_BOLD
