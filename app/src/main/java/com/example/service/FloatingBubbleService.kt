@@ -52,12 +52,14 @@ class FloatingBubbleService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var stateCollectJob: Job? = null
 
-    private var isMinimized = false
+    private var isMinimized = true
     private var isRoundCompleteReset = false
     private var lastProcessedRowForRoundReset = -1
     private val roundCompleteHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     private var floatingInboxWindow: FloatingInboxWindow? = null
+    private var floatingFacebookWindow: FloatingFacebookWindow? = null
+    private var isToolsMenuExpanded: Boolean = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -202,9 +204,8 @@ class FloatingBubbleService : Service() {
     }
 
     private fun createMinimizedPillView(sizePx: Int, currentRow: Int): View {
-        val controlSize = (sizePx * 0.85).toInt().coerceAtLeast(dpToPx(40))
         val layout = FrameLayout(this).apply {
-            val lp = FrameLayout.LayoutParams(controlSize, controlSize).apply {
+            val lp = FrameLayout.LayoutParams(sizePx, sizePx).apply {
                 val margin = dpToPx(3)
                 setMargins(margin, margin, margin, margin)
             }
@@ -213,15 +214,17 @@ class FloatingBubbleService : Service() {
 
         val backgroundDrawable = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setColor(Color.parseColor("#334155")) // Exact same Slate color
-            setStroke(dpToPx(2f), Color.WHITE)
+            colors = intArrayOf(Color.parseColor("#1E293B"), Color.parseColor("#0F172A")) // Dark Slate gradient
+            orientation = GradientDrawable.Orientation.TL_BR
+            setStroke(dpToPx(2.5f), Color.parseColor("#0284C7")) // Electric Sky Blue accent ring
         }
         layout.background = backgroundDrawable
+        layout.elevation = dpToPx(6).toFloat()
 
         val text = TextView(this).apply {
             text = "R$currentRow"
             setTextColor(Color.WHITE)
-            textSize = 12f
+            textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             layoutParams = FrameLayout.LayoutParams(
@@ -258,9 +261,17 @@ class FloatingBubbleService : Service() {
         val headerButton = createHeaderControlView(buttonSizePx, state.currentRow)
         mainLayout.addView(headerButton)
 
-        // 3. Special MailGen Inbox Bubble Button (✉️)
-        val inboxButton = createSpecialInboxButton(buttonSizePx)
-        mainLayout.addView(inboxButton)
+        // 3. Special Tools Hub (⚡ Tools Hub with MailGen ✉️ and Facebook Web 🔵)
+        val hubToggleButton = createSpecialHubToggleButton(buttonSizePx)
+        mainLayout.addView(hubToggleButton)
+
+        if (isToolsMenuExpanded) {
+            val inboxBtn = createSpecialInboxButton(buttonSizePx)
+            val fbBtn = createSpecialFacebookButton(buttonSizePx)
+
+            mainLayout.addView(inboxBtn)
+            mainLayout.addView(fbBtn)
+        }
 
         // 4. Column Buttons (Uniform base color, changes to Green with checkmark when pasted in active round)
         val columns = state.config.columns
@@ -309,9 +320,8 @@ class FloatingBubbleService : Service() {
     }
 
     private fun createHeaderControlView(sizePx: Int, currentRow: Int): View {
-        val controlSize = (sizePx * 0.85).toInt().coerceAtLeast(dpToPx(40))
         val layout = FrameLayout(this).apply {
-            val lp = LinearLayout.LayoutParams(controlSize, controlSize).apply {
+            val lp = LinearLayout.LayoutParams(sizePx, sizePx).apply {
                 val margin = dpToPx(3)
                 setMargins(margin, margin, margin, margin)
             }
@@ -320,15 +330,17 @@ class FloatingBubbleService : Service() {
 
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setColor(Color.parseColor("#334155")) // Slate
-            setStroke(dpToPx(2f), Color.WHITE)
+            colors = intArrayOf(Color.parseColor("#1E293B"), Color.parseColor("#0F172A")) // Matching exact dark slate gradient
+            orientation = GradientDrawable.Orientation.TL_BR
+            setStroke(dpToPx(2.5f), Color.parseColor("#0284C7")) // Sky Blue accent
         }
         layout.background = bg
+        layout.elevation = dpToPx(6).toFloat()
 
         val tv = TextView(this).apply {
             text = "R$currentRow"
             setTextColor(Color.WHITE)
-            textSize = 12f
+            textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             layoutParams = FrameLayout.LayoutParams(
@@ -348,13 +360,63 @@ class FloatingBubbleService : Service() {
     }
 
     /**
+     * Special Tools Hub Toggle Button (⚡ Tools).
+     * Clicking it expands or collapses the tools menu (MailGen ✉️, Facebook Web 🔵).
+     */
+    private fun createSpecialHubToggleButton(sizePx: Int): View {
+        val layout = FrameLayout(this).apply {
+            val lp = LinearLayout.LayoutParams(sizePx, sizePx).apply {
+                val margin = dpToPx(3)
+                setMargins(margin, margin, margin, margin)
+            }
+            layoutParams = lp
+        }
+
+        val bg = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            colors = if (isToolsMenuExpanded) {
+                intArrayOf(Color.parseColor("#F59E0B"), Color.parseColor("#D97706")) // Amber gradient when expanded
+            } else {
+                intArrayOf(Color.parseColor("#8B5CF6"), Color.parseColor("#6366F1")) // Indigo/Violet when collapsed
+            }
+            orientation = GradientDrawable.Orientation.TL_BR
+            setStroke(dpToPx(2.5f), Color.WHITE)
+        }
+        layout.background = bg
+        layout.elevation = dpToPx(5).toFloat()
+
+        val tv = TextView(this).apply {
+            text = if (isToolsMenuExpanded) "⚡" else "🛠️"
+            textSize = 17f
+            gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        layout.addView(tv)
+
+        layout.setOnClickListener {
+            isToolsMenuExpanded = !isToolsMenuExpanded
+            updateOverlayContent(repository.sheetState.value)
+        }
+
+        layout.setOnLongClickListener {
+            // Quick shortcut: long press toggles Facebook directly!
+            toggleFloatingFacebookWindow()
+            true
+        }
+
+        return layout
+    }
+
+    /**
      * Special circular floating bubble for MailGen Inbox reading.
      * Clicking it opens/toggles the compact draggable Inbox Window.
      */
     private fun createSpecialInboxButton(sizePx: Int): View {
-        val buttonSize = (sizePx * 0.9).toInt().coerceAtLeast(dpToPx(42))
         val layout = FrameLayout(this).apply {
-            val lp = LinearLayout.LayoutParams(buttonSize, buttonSize).apply {
+            val lp = LinearLayout.LayoutParams(sizePx, sizePx).apply {
                 val margin = dpToPx(3)
                 setMargins(margin, margin, margin, margin)
             }
@@ -368,10 +430,11 @@ class FloatingBubbleService : Service() {
             setStroke(dpToPx(2f), Color.WHITE)
         }
         layout.background = bg
+        layout.elevation = dpToPx(4).toFloat()
 
         val tv = TextView(this).apply {
             text = "✉️"
-            textSize = 18f
+            textSize = 17f
             gravity = Gravity.CENTER
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -387,6 +450,63 @@ class FloatingBubbleService : Service() {
         return layout
     }
 
+    /**
+     * Special circular floating bubble for Facebook Web window (🔵 FB).
+     * Clicking it opens the floating mobile Facebook overlay for logging in and copying UID.
+     */
+    private fun createSpecialFacebookButton(sizePx: Int): View {
+        val layout = FrameLayout(this).apply {
+            val lp = LinearLayout.LayoutParams(sizePx, sizePx).apply {
+                val margin = dpToPx(3)
+                setMargins(margin, margin, margin, margin)
+            }
+            layoutParams = lp
+        }
+
+        val bg = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            colors = intArrayOf(Color.parseColor("#1877F2"), Color.parseColor("#0C63D4")) // Facebook signature blue
+            orientation = GradientDrawable.Orientation.TL_BR
+            setStroke(dpToPx(2.5f), Color.WHITE)
+        }
+        layout.background = bg
+        layout.elevation = dpToPx(5).toFloat()
+
+        val tv = TextView(this).apply {
+            text = "f"
+            setTextColor(Color.WHITE)
+            textSize = 21f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        layout.addView(tv)
+
+        layout.setOnClickListener {
+            toggleFloatingFacebookWindow()
+        }
+
+        return layout
+    }
+
+    /**
+     * Brings the floating bubble overlay to the very top of the window hierarchy
+     * so it is never hidden behind floating popup windows.
+     */
+    fun bringOverlayToFront() {
+        val root = overlayRootView ?: return
+        val params = windowParams ?: return
+        try {
+            windowManager.removeView(root)
+            windowManager.addView(root, params)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     private fun toggleFloatingInboxWindow() {
         if (floatingInboxWindow?.isShowing == true) {
             floatingInboxWindow?.dismiss()
@@ -397,6 +517,21 @@ class FloatingBubbleService : Service() {
                 }
             }
             floatingInboxWindow?.show()
+            bringOverlayToFront()
+        }
+    }
+
+    private fun toggleFloatingFacebookWindow() {
+        if (floatingFacebookWindow?.isShowing == true) {
+            floatingFacebookWindow?.dismiss()
+        } else {
+            if (floatingFacebookWindow == null) {
+                floatingFacebookWindow = FloatingFacebookWindow(this, windowManager) {
+                    // Closed callback
+                }
+            }
+            floatingFacebookWindow?.show()
+            bringOverlayToFront()
         }
     }
 
@@ -508,6 +643,8 @@ class FloatingBubbleService : Service() {
         stateCollectJob?.cancel()
         floatingInboxWindow?.dismiss()
         floatingInboxWindow = null
+        floatingFacebookWindow?.dismiss()
+        floatingFacebookWindow = null
         overlayRootView?.let { root ->
             try {
                 windowManager.removeView(root)

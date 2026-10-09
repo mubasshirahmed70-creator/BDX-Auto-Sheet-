@@ -426,10 +426,12 @@ private fun HowToUseAppCard(sheetState: SheetState) {
 
             val firstCol = sheetState.config.columns.firstOrNull() ?: "A"
             Text(
-                text = "• Floating Bubbles: Tap 'START FLOATING BUBBLE' to show bubbles on the right edge of your screen. Tap any column bubble (${sheetState.config.columns.joinToString(", ")}) over any app to insert copied text.\n\n" +
-                        "• Round Progression: Data is recorded row by row. Tapping '$firstCol' (the first column) advances to the next round/row automatically.\n\n" +
-                        "• Hotmail & OTP Inbox: Tap the purple ✉️ bubble to paste Hotmail data, instantly 1-tap copy the email address, and fetch inbox verification codes.\n\n" +
-                        "• Sheet & Export: Tap 'OPEN SHEET' to review and edit cells, or export everything to Excel (.xlsx) anytime.",
+                text = "• Floating Bubbles: Tap 'START FLOATING BUBBLE' to show bubbles on your screen. Tap any column bubble (${sheetState.config.columns.joinToString(", ")}) over any app to insert copied text.\n\n" +
+                        "• ⚡ Special Tools Hub: Tap the ⚡/🛠️ button to expand quick tools:\n" +
+                        "   - ✉️ MailGen Inbox: Read temporary mail, copy email & fetch OTPs.\n" +
+                        "   - 🔵 Facebook Web: Floating mobile Facebook window! Log in freely with automatic typing, and 1-tap 'COPY UID' or 'COPY COOKIE' to grab account ID or full cookies straight to clipboard!\n\n" +
+                        "• Round Progression: Data is recorded row by row. Tapping '$firstCol' or finishing a round advances to the next row automatically.\n\n" +
+                        "• Sheet & Export: Tap 'OPEN SHEET' to review, edit cells, or export everything to Excel (.xlsx) anytime.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 18.sp
