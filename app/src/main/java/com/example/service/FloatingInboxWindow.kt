@@ -34,6 +34,9 @@ import com.example.api.MailDataParser
 import com.example.api.MailGenClient
 import com.example.api.MailInboxResult
 import com.example.api.MailMessage
+import com.example.data.repository.HotmailItem
+import com.example.data.repository.HotmailStockRepository
+import com.example.data.repository.HotmailStockState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -52,11 +55,19 @@ class FloatingInboxWindow(
     private val scope = CoroutineScope(Dispatchers.Main + Job())
     private var windowParams: WindowManager.LayoutParams? = null
     private var rootView: View? = null
+    private var observerJob: Job? = null
+
+    private val hotmailStockRepo = HotmailStockRepository.getInstance(context)
+    private var activeHotmailItem: HotmailItem? = null
 
     private var currentMode = "oauth"
     private var latestExtractedEmail: String? = null
 
     // UI references
+    private lateinit var queueStatusTextView: TextView
+    private lateinit var activeHotmailTextView: TextView
+    private lateinit var copyFullHotmailButton: TextView
+    private lateinit var copyMailOnlyButton: TextView
     private lateinit var inputEditText: EditText
     private lateinit var emailResultContainer: LinearLayout
     private lateinit var emailTextView: TextView
@@ -111,6 +122,20 @@ class FloatingInboxWindow(
         try {
             windowManager.addView(view, params)
             isShowing = true
+
+            // Automatically listen to stock changes
+            observerJob?.cancel()
+            observerJob = scope.launch {
+                hotmailStockRepo.stockState.collect { state ->
+                    updateQueueHeader(state)
+                }
+            }
+
+            // Automatically load current or first available hotmail from stock
+            val initial = hotmailStockRepo.getCurrentOrFirstAvailable()
+            if (initial != null) {
+                loadHotmailItem(initial)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(context, "Cannot open inbox window: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -160,6 +185,8 @@ class FloatingInboxWindow(
 
     fun dismiss() {
         if (!isShowing) return
+        observerJob?.cancel()
+        observerJob = null
         releaseInputFocus()
         rootView?.let { view ->
             try {
@@ -248,6 +275,10 @@ class FloatingInboxWindow(
         // Make Header Draggable anywhere across the phone screen!
         setupDragListener(headerLayout, params)
         rootCard.addView(headerLayout)
+
+        // Hotmail Stock Queue Controller Section
+        val queueSection = buildHotmailQueueSection()
+        rootCard.addView(queueSection)
 
         // 2. Input Row (EditText + Paste Button)
         val inputRow = LinearLayout(context).apply {
@@ -605,6 +636,13 @@ class FloatingInboxWindow(
         val firstMessageWithCode = messages.firstOrNull { it.getResolvedCode() != null }
         if (firstMessageWithCode != null) {
             val otpCode = firstMessageWithCode.getResolvedCode()!!
+
+            // Auto-discard requirement: "যে হটমেইলগুলোতে ওটিপি এসে যাবে ওইগুলা আর ব্যবহার হবে না ওইগুলা বাতিল হয়ে যাবে।"
+            val currentMailTarget = activeHotmailItem?.id ?: latestExtractedEmail.orEmpty()
+            if (currentMailTarget.isNotBlank()) {
+                hotmailStockRepo.markMailAsUsed(currentMailTarget)
+            }
+
             val otpCard = createOtpHighlightCard(otpCode, firstMessageWithCode.from)
             resultsContainer.addView(otpCard)
         }
@@ -649,9 +687,10 @@ class FloatingInboxWindow(
         }
 
         val senderLabel = TextView(context).apply {
-            text = if (sender.isNotBlank()) "from $sender" else ""
-            setTextColor(Color.parseColor("#C7D2FE"))
+            text = if (sender.isNotBlank()) "from $sender" else "✓ Used/বাতিল"
+            setTextColor(Color.parseColor("#34D399")) // Bright mint green
             textSize = 10f
+            setTypeface(null, Typeface.BOLD)
         }
 
         headerRow.addView(otpLabel)
@@ -661,7 +700,7 @@ class FloatingInboxWindow(
         val codeRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dpToPx(4), 0, 0)
+            setPadding(0, dpToPx(4), 0, dpToPx(4))
         }
 
         val codeText = TextView(context).apply {
@@ -673,30 +712,297 @@ class FloatingInboxWindow(
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
+        codeRow.addView(codeText)
+        card.addView(codeRow)
+
+        // OTP Action Buttons: "📋 COPY OTP" and "⚡ COPY & NEXT ⏭️"
+        val otpButtonsRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dpToPx(2), 0, 0)
+        }
+
         val copyCodeBtn = TextView(context).apply {
             text = "📋 COPY OTP"
             setTextColor(Color.WHITE)
-            textSize = 11f
+            textSize = 10.5f
             setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
-            setPadding(dpToPx(10), dpToPx(6), dpToPx(10), dpToPx(6))
+            setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6))
             val btnBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(6).toFloat()
                 setColor(Color.parseColor("#10B981"))
             }
             background = btnBg
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginEnd = dpToPx(4)
+            }
             setOnClickListener {
                 copyTextToClipboard("OTP Code", otpCode)
-                Toast.makeText(context, "OTP Copied: $otpCode", Toast.LENGTH_SHORT).show()
+                val currentMailTarget = activeHotmailItem?.id ?: latestExtractedEmail.orEmpty()
+                if (currentMailTarget.isNotBlank()) {
+                    hotmailStockRepo.markMailAsUsed(currentMailTarget)
+                }
+                Toast.makeText(context, "OTP Copied ($otpCode) & Mail marked as Used!", Toast.LENGTH_SHORT).show()
             }
         }
 
-        codeRow.addView(codeText)
-        codeRow.addView(copyCodeBtn)
-        card.addView(codeRow)
+        val copyAndNextBtn = TextView(context).apply {
+            text = "⚡ COPY & NEXT ⏭️"
+            setTextColor(Color.WHITE)
+            textSize = 10.5f
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6))
+            val btnBg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(6).toFloat()
+                colors = intArrayOf(Color.parseColor("#6366F1"), Color.parseColor("#8B5CF6"))
+                orientation = GradientDrawable.Orientation.LEFT_RIGHT
+            }
+            background = btnBg
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = dpToPx(4)
+            }
+            setOnClickListener {
+                copyTextToClipboard("OTP Code", otpCode)
+                val next = hotmailStockRepo.markCurrentAsUsedAndGetNext()
+                if (next != null) {
+                    loadHotmailItem(next)
+                    resultsContainer.removeAllViews()
+                    resultsScrollView.visibility = View.GONE
+                    statusTextView.visibility = View.VISIBLE
+                    statusTextView.setTextColor(Color.parseColor("#34D399"))
+                    statusTextView.text = "OTP Copied! Next mail loaded: ${next.email}"
+                    Toast.makeText(context, "OTP Copied! Loaded next: ${next.email}", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "OTP Copied! All hotmails in stock are used.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        otpButtonsRow.addView(copyCodeBtn)
+        otpButtonsRow.addView(copyAndNextBtn)
+        card.addView(otpButtonsRow)
 
         return card
+    }
+
+    /**
+     * Hotmail Stock & Queue Controller Section.
+     * Features:
+     * - Queue status badge (e.g. "📦 Hotmail Queue: 24 Available / 50 Total")
+     * - "⏭️ Next" button to load next unused hotmail
+     * - "⏩ Done/Skip" button to mark current as used and load next
+     * - Active hotmail email display
+     * - "📋 COPY FULL DATA" button (copies full line: email|pass or email:pass)
+     * - "📧 COPY MAIL ONLY" button (copies extracted email address only)
+     */
+    private fun buildHotmailQueueSection(): View {
+        val container = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            val bg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(10).toFloat()
+                colors = intArrayOf(Color.parseColor("#172554"), Color.parseColor("#1E1B4B")) // Deep Royal / Indigo gradient
+                setStroke(dpToPx(1.2f), Color.parseColor("#3B82F6"))
+            }
+            background = bg
+            setPadding(dpToPx(10), dpToPx(8), dpToPx(10), dpToPx(8))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = dpToPx(8)
+            }
+        }
+
+        // Header Row: Queue badge + Next + Discard
+        val headerRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        queueStatusTextView = TextView(context).apply {
+            text = "📦 Hotmail Queue: 0 Available"
+            setTextColor(Color.parseColor("#93C5FD"))
+            textSize = 11.5f
+            setTypeface(null, Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        val nextBtn = TextView(context).apply {
+            text = "⏭️ Next"
+            setTextColor(Color.WHITE)
+            textSize = 11f
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(8), dpToPx(4), dpToPx(8), dpToPx(4))
+            val btnBg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(6).toFloat()
+                setColor(Color.parseColor("#2563EB"))
+            }
+            background = btnBg
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                marginEnd = dpToPx(4)
+            }
+            setOnClickListener {
+                val next = hotmailStockRepo.getAndAdvanceNextMail()
+                if (next != null) {
+                    loadHotmailItem(next)
+                    Toast.makeText(context, "Loaded: ${next.email}", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "No unused hotmails! Upload .txt in app.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        val discardBtn = TextView(context).apply {
+            text = "⏩ Done/Skip"
+            setTextColor(Color.parseColor("#E2E8F0"))
+            textSize = 10.5f
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(7), dpToPx(4), dpToPx(7), dpToPx(4))
+            val btnBg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(6).toFloat()
+                setColor(Color.parseColor("#475569"))
+            }
+            background = btnBg
+            setOnClickListener {
+                val next = hotmailStockRepo.markCurrentAsUsedAndGetNext()
+                if (next != null) {
+                    loadHotmailItem(next)
+                    Toast.makeText(context, "Marked as Used & loaded next: ${next.email}", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "All hotmails in stock marked as used!", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        headerRow.addView(queueStatusTextView)
+        headerRow.addView(nextBtn)
+        headerRow.addView(discardBtn)
+        container.addView(headerRow)
+
+        // Active Mail text display
+        activeHotmailTextView = TextView(context).apply {
+            text = "Tap ⏭️ Next or upload .txt in app"
+            setTextColor(Color.parseColor("#6EE7B7")) // Mint green
+            textSize = 12f
+            setTypeface(null, Typeface.BOLD)
+            isSingleLine = true
+            setPadding(0, dpToPx(4), 0, dpToPx(6))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        container.addView(activeHotmailTextView)
+
+        // 2 Dedicated Copy Buttons (Requirement 8 & 9)
+        val copyButtonRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        copyFullHotmailButton = TextView(context).apply {
+            text = "📋 COPY FULL DATA"
+            setTextColor(Color.WHITE)
+            textSize = 10.5f
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6))
+            val btnBg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(6).toFloat()
+                setColor(Color.parseColor("#3B82F6"))
+            }
+            background = btnBg
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginEnd = dpToPx(4)
+            }
+            setOnClickListener {
+                val fullData = activeHotmailItem?.rawData ?: inputEditText.text.toString().trim()
+                if (fullData.isNotEmpty()) {
+                    copyTextToClipboard("Hotmail Full Data", fullData)
+                    Toast.makeText(context, "Copied Full Hotmail Data", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "No hotmail data to copy", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        copyMailOnlyButton = TextView(context).apply {
+            text = "📧 COPY MAIL ONLY"
+            setTextColor(Color.WHITE)
+            textSize = 10.5f
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6))
+            val btnBg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(6).toFloat()
+                setColor(Color.parseColor("#10B981"))
+            }
+            background = btnBg
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = dpToPx(4)
+            }
+            setOnClickListener {
+                val emailOnly = activeHotmailItem?.email ?: latestExtractedEmail
+                if (!emailOnly.isNullOrBlank()) {
+                    copyTextToClipboard("Email Address", emailOnly)
+                    Toast.makeText(context, "Copied Email: $emailOnly", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "No email address found", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        copyButtonRow.addView(copyFullHotmailButton)
+        copyButtonRow.addView(copyMailOnlyButton)
+        container.addView(copyButtonRow)
+
+        return container
+    }
+
+    private fun updateQueueHeader(state: HotmailStockState) {
+        if (!::queueStatusTextView.isInitialized) return
+        val available = state.availableCount
+        val total = state.totalCount
+        if (total == 0) {
+            queueStatusTextView.text = "📦 Stock Empty (Upload .txt in app)"
+            activeHotmailTextView.text = "No Hotmail loaded"
+        } else {
+            queueStatusTextView.text = "📦 Queue: $available Left / $total Total"
+            val current = state.currentLoadedItem
+            if (current != null && !current.isUsed) {
+                activeHotmailTextView.text = "📧 ${current.email}"
+            } else if (available > 0) {
+                activeHotmailTextView.text = "Tap ⏭️ Next to load next mail"
+            } else {
+                activeHotmailTextView.text = "✅ All $total Hotmails used/বাতিল"
+            }
+        }
+    }
+
+    private fun loadHotmailItem(item: HotmailItem) {
+        activeHotmailItem = item
+        if (::activeHotmailTextView.isInitialized) {
+            activeHotmailTextView.text = "📧 ${item.email}"
+        }
+        if (::inputEditText.isInitialized) {
+            inputEditText.setText(item.rawData)
+            inputEditText.setSelection(item.rawData.length)
+        }
+        onInputChanged(item.rawData)
     }
 
     private fun createMessageCard(msg: MailMessage): View {

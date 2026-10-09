@@ -74,6 +74,7 @@ fun SheetScreen(
     viewModel: MainViewModel,
     onNavigateBack: () -> Unit,
     onDownloadXlsx: () -> Unit,
+    onDownloadCsv: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     BackHandler { onNavigateBack() }
@@ -82,6 +83,7 @@ fun SheetScreen(
     val canUndo by viewModel.canUndo.collectAsState()
     val canRedo by viewModel.canRedo.collectAsState()
 
+    var showDownloadDialog by remember { mutableStateOf(false) }
     var editingCell by remember { mutableStateOf<Triple<Int, Int, String>?>(null) } // (row, colIndex, currentValue)
     var showResetDialog by remember { mutableStateOf(false) }
 
@@ -166,9 +168,9 @@ fun SheetScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // DOWNLOAD XLSX BUTTON
+                    // DOWNLOAD SPREADSHEET BUTTON
                     Button(
-                        onClick = onDownloadXlsx,
+                        onClick = { showDownloadDialog = true },
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF059669),
@@ -186,7 +188,7 @@ fun SheetScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "DOWNLOAD XLSX",
+                            text = "DOWNLOAD SHEET",
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp
                         )
@@ -339,6 +341,114 @@ fun SheetScreen(
                     ) {
                         Text("CANCEL")
                     }
+                }
+            }
+        )
+    }
+
+    // Download Format Selection Dialog (XLSX & CSV)
+    if (showDownloadDialog) {
+        AlertDialog(
+            onDismissRequest = { showDownloadDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Download,
+                    contentDescription = null,
+                    tint = Color(0xFF059669),
+                    modifier = Modifier.size(28.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Download Spreadsheet",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Choose format to download. Both formats can be opened in Google Sheets and Microsoft Excel:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    // Option 1: Excel (.xlsx)
+                    Surface(
+                        onClick = {
+                            showDownloadDialog = false
+                            onDownloadXlsx()
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF059669).copy(alpha = 0.1f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF059669)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "📊",
+                                fontSize = 24.sp
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Excel Workbook (.xlsx)",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF065F46)
+                                )
+                                Text(
+                                    text = "Full formatting, rows & columns standard",
+                                    fontSize = 11.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    // Option 2: CSV (.csv)
+                    Surface(
+                        onClick = {
+                            showDownloadDialog = false
+                            onDownloadCsv()
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "📄",
+                                fontSize = 24.sp
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Universal CSV (.csv)",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "Opens instantly anywhere without loading delay",
+                                    fontSize = 11.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showDownloadDialog = false }) {
+                    Text("CANCEL")
                 }
             }
         )

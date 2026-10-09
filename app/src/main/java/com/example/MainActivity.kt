@@ -61,6 +61,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Storage Access Framework launcher to save CSV file to user's desired location
+    private val createCsvDocumentLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.exportCsvToUri(uri)
+        }
+    }
+
     // Overlay permission launcher
     private val overlayPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -170,7 +179,8 @@ class MainActivity : ComponentActivity() {
                                 SheetScreen(
                                     viewModel = viewModel,
                                     onNavigateBack = { currentScreen = AppScreen.MAIN },
-                                    onDownloadXlsx = { startXlsxExportFlow() }
+                                    onDownloadXlsx = { startXlsxExportFlow() },
+                                    onDownloadCsv = { startCsvExportFlow() }
                                 )
                             }
                             AppScreen.SETUP -> {
@@ -189,6 +199,11 @@ class MainActivity : ComponentActivity() {
     private fun startXlsxExportFlow() {
         val fileName = "BDX_AutoSheet_${System.currentTimeMillis()}.xlsx"
         createDocumentLauncher.launch(fileName)
+    }
+
+    private fun startCsvExportFlow() {
+        val fileName = "BDX_AutoSheet_${System.currentTimeMillis()}.csv"
+        createCsvDocumentLauncher.launch(fileName)
     }
 
     private fun shareExportedFile(file: File) {

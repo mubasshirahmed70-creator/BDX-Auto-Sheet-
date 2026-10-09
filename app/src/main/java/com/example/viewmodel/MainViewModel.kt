@@ -39,9 +39,13 @@ sealed class UiEvent {
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = SheetRepository.getInstance(application)
+    private val hotmailStockRepo = com.example.data.repository.HotmailStockRepository.getInstance(application)
 
     val sheetState: StateFlow<SheetState> = repository.sheetState
         .stateIn(viewModelScope, SharingStarted.Eagerly, repository.sheetState.value)
+
+    val hotmailStockState: StateFlow<com.example.data.repository.HotmailStockState> = hotmailStockRepo.stockState
+        .stateIn(viewModelScope, SharingStarted.Eagerly, hotmailStockRepo.stockState.value)
 
     val isServiceRunning: StateFlow<Boolean> = FloatingBubbleService.isRunning
 
@@ -215,12 +219,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (outputStream != null) {
                     XlsxExporter.exportToStream(sheetState.value, outputStream)
                     outputStream.close()
-                    _uiEvents.emit(UiEvent.ShowMessage("XLSX exported successfully!"))
+                    _uiEvents.emit(UiEvent.ShowMessage("Spreadsheet exported successfully!"))
                 } else {
                     _uiEvents.emit(UiEvent.ShowMessage("Failed to open file output stream"))
                 }
             } catch (e: Exception) {
                 _uiEvents.emit(UiEvent.ShowMessage("Export error: ${e.message}"))
+            }
+        }
+    }
+
+    fun exportCsvToUri(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val app = getApplication<Application>()
+                val outputStream = app.contentResolver.openOutputStream(uri)
+                if (outputStream != null) {
+                    XlsxExporter.exportToCsvStream(sheetState.value, outputStream)
+                    outputStream.close()
+                    _uiEvents.emit(UiEvent.ShowMessage("CSV exported successfully!"))
+                } else {
+                    _uiEvents.emit(UiEvent.ShowMessage("Failed to open file output stream"))
+                }
+            } catch (e: Exception) {
+                _uiEvents.emit(UiEvent.ShowMessage("CSV Export error: ${e.message}"))
             }
         }
     }
@@ -238,6 +260,60 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _uiEvents.emit(UiEvent.ShowMessage("Export error: ${e.message}"))
             }
+        }
+    }
+
+    fun importHotmailsFromUri(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val app = getApplication<Application>()
+                val result = hotmailStockRepo.importFromUri(uri)
+                val message = if (result.first > 0) {
+                    "✅ Imported ${result.first} Hotmails from file! (Skipped ${result.second} duplicates)"
+                } else if (result.second > 0) {
+                    "ℹ️ All ${result.second} Hotmails in file already exist in stock."
+                } else {
+                    "⚠️ No valid hotmail lines found in file."
+                }
+                _uiEvents.emit(UiEvent.ShowMessage(message))
+            } catch (e: Exception) {
+                _uiEvents.emit(UiEvent.ShowMessage("Failed to read file: ${e.message}"))
+            }
+        }
+    }
+
+    fun importHotmailsFromText(text: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = hotmailStockRepo.importFromText(text)
+            val message = if (result.first > 0) {
+                "✅ Added ${result.first} Hotmails to stock! (Skipped ${result.second} duplicates)"
+            } else if (result.second > 0) {
+                "ℹ️ All ${result.second} Hotmails already in stock."
+            } else {
+                "⚠️ No valid hotmail text entered."
+            }
+            _uiEvents.emit(UiEvent.ShowMessage(message))
+        }
+    }
+
+    fun clearHotmailStock() {
+        hotmailStockRepo.clearAll()
+        viewModelScope.launch {
+            _uiEvents.emit(UiEvent.ShowMessage("🗑️ Hotmail stock cleared!"))
+        }
+    }
+
+    fun resetHotmailStock() {
+        hotmailStockRepo.resetAllUsedToAvailable()
+        viewModelScope.launch {
+            _uiEvents.emit(UiEvent.ShowMessage("🔄 All used hotmails reset to available!"))
+        }
+    }
+
+    fun clearUsedHotmailStock() {
+        hotmailStockRepo.clearUsedOnly()
+        viewModelScope.launch {
+            _uiEvents.emit(UiEvent.ShowMessage("🧹 Used hotmails removed from stock!"))
         }
     }
 

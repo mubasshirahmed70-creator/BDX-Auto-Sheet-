@@ -52,17 +52,18 @@ object MailDataParser {
 
     /**
      * Extracts the first valid email address from any raw string, e.g.
-     * "user@outlook.com|pass|rt|cid" -> "user@outlook.com"
+     * "user@outlook.com|pass|rt|cid", "user@hotmail.com:pass123", or plain email.
      */
     fun extractEmail(raw: String): String? {
         val trimmed = raw.trim()
         if (trimmed.isEmpty()) return null
 
-        // If pipe-separated, the first part is usually the email
-        if (trimmed.contains("|")) {
-            val firstPart = trimmed.substringBefore("|").trim()
-            if (EMAIL_REGEX.matches(firstPart)) {
-                return firstPart
+        // Check common delimiters: |, :, ;, space, tab, comma
+        val tokens = trimmed.split(Regex("""[:|;, \t]+"""))
+        for (token in tokens) {
+            val candidate = token.trim()
+            if (EMAIL_REGEX.matches(candidate)) {
+                return candidate
             }
         }
 
