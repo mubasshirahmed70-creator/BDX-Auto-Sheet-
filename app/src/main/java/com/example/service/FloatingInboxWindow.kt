@@ -248,8 +248,19 @@ class FloatingInboxWindow(
             setPadding(dpToPx(2), dpToPx(2), dpToPx(6), dpToPx(2))
         }
 
+        // Crisp vector mail icon
+        val mailLogoIv = android.widget.ImageView(context).apply {
+            setImageResource(com.example.R.drawable.ic_mail_logo)
+            setColorFilter(Color.parseColor("#38BDF8")) // Crisp Electric Sky Blue
+            val logoSize = dpToPx(18)
+            val lp = LinearLayout.LayoutParams(logoSize, logoSize).apply {
+                marginEnd = dpToPx(6)
+            }
+            layoutParams = lp
+        }
+
         val titleText = TextView(context).apply {
-            text = "✉️ MailGen Inbox"
+            text = "MailGen Inbox"
             setTextColor(Color.WHITE)
             textSize = 13.5f
             setTypeface(null, Typeface.BOLD)

@@ -59,6 +59,7 @@ class FloatingBubbleService : Service() {
 
     private var floatingInboxWindow: FloatingInboxWindow? = null
     private var floatingFacebookWindow: FloatingFacebookWindow? = null
+    private var floatingNameWindow: FloatingNameWindow? = null
     private var isToolsMenuExpanded: Boolean = false
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -214,19 +215,23 @@ class FloatingBubbleService : Service() {
 
         val backgroundDrawable = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            colors = intArrayOf(Color.parseColor("#1E293B"), Color.parseColor("#0F172A")) // Dark Slate gradient
+            colors = intArrayOf(
+                Color.parseColor("#2563EB"), // Radiant Electric Royal Blue
+                Color.parseColor("#06B6D4")  // Radiant Cyan
+            )
             orientation = GradientDrawable.Orientation.TL_BR
-            setStroke(dpToPx(2.5f), Color.parseColor("#0284C7")) // Electric Sky Blue accent ring
+            setStroke(dpToPx(3f), Color.WHITE) // Brilliant white rim
         }
         layout.background = backgroundDrawable
-        layout.elevation = dpToPx(6).toFloat()
+        layout.elevation = dpToPx(8).toFloat()
 
         val text = TextView(this).apply {
             text = "R$currentRow"
             setTextColor(Color.WHITE)
-            textSize = 13f
+            textSize = 14f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
+            setShadowLayer(dpToPx(2).toFloat(), 0f, dpToPx(1).toFloat(), Color.parseColor("#80000000"))
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
@@ -268,9 +273,11 @@ class FloatingBubbleService : Service() {
         if (isToolsMenuExpanded) {
             val inboxBtn = createSpecialInboxButton(buttonSizePx)
             val fbBtn = createSpecialFacebookButton(buttonSizePx)
+            val nameBtn = createSpecialNameButton(buttonSizePx)
 
             mainLayout.addView(inboxBtn)
             mainLayout.addView(fbBtn)
+            mainLayout.addView(nameBtn)
         }
 
         // 4. Column Buttons (Uniform base color, changes to Green with checkmark when pasted in active round)
@@ -313,7 +320,8 @@ class FloatingBubbleService : Service() {
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(3).toFloat()
-                setColor(Color.parseColor("#94A3B8")) // Clean Slate grip
+                setColor(Color.parseColor("#F1F5F9")) // Luminous light grip
+                setStroke(dpToPx(1), Color.parseColor("#94A3B8"))
             }
             background = bg
         }
@@ -330,9 +338,12 @@ class FloatingBubbleService : Service() {
 
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            colors = intArrayOf(Color.parseColor("#1E293B"), Color.parseColor("#0F172A")) // Matching exact dark slate gradient
+            colors = intArrayOf(
+                Color.parseColor("#1D4ED8"), // Deep Vibrant Royal Blue
+                Color.parseColor("#0284C7")  // Sky Blue
+            )
             orientation = GradientDrawable.Orientation.TL_BR
-            setStroke(dpToPx(2.5f), Color.parseColor("#0284C7")) // Sky Blue accent
+            setStroke(dpToPx(2.5f), Color.WHITE)
         }
         layout.background = bg
         layout.elevation = dpToPx(6).toFloat()
@@ -340,9 +351,10 @@ class FloatingBubbleService : Service() {
         val tv = TextView(this).apply {
             text = "R$currentRow"
             setTextColor(Color.WHITE)
-            textSize = 13f
+            textSize = 14f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
+            setShadowLayer(dpToPx(2).toFloat(), 0f, dpToPx(1).toFloat(), Color.parseColor("#80000000"))
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
@@ -361,7 +373,7 @@ class FloatingBubbleService : Service() {
 
     /**
      * Special Tools Hub Toggle Button (⚡ Tools).
-     * Clicking it expands or collapses the tools menu (MailGen ✉️, Facebook Web 🔵).
+     * Clicking it expands or collapses the tools menu (MailGen ✉️, Facebook Web 🔵, USA Names 👤).
      */
     private fun createSpecialHubToggleButton(sizePx: Int): View {
         val layout = FrameLayout(this).apply {
@@ -372,29 +384,32 @@ class FloatingBubbleService : Service() {
             layoutParams = lp
         }
 
+        // Luminous glowing neon circle
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             colors = if (isToolsMenuExpanded) {
-                intArrayOf(Color.parseColor("#F59E0B"), Color.parseColor("#D97706")) // Amber gradient when expanded
+                intArrayOf(Color.parseColor("#F59E0B"), Color.parseColor("#EA580C")) // Blazing Amber / Orange
             } else {
-                intArrayOf(Color.parseColor("#8B5CF6"), Color.parseColor("#6366F1")) // Indigo/Violet when collapsed
+                intArrayOf(Color.parseColor("#C084FC"), Color.parseColor("#7C3AED")) // Vivid Electric Purple
             }
             orientation = GradientDrawable.Orientation.TL_BR
             setStroke(dpToPx(2.5f), Color.WHITE)
         }
         layout.background = bg
-        layout.elevation = dpToPx(5).toFloat()
+        layout.elevation = dpToPx(8).toFloat()
 
-        val tv = TextView(this).apply {
-            text = if (isToolsMenuExpanded) "⚡" else "🛠️"
-            textSize = 17f
-            gravity = Gravity.CENTER
+        val iv = android.widget.ImageView(this).apply {
+            setImageResource(R.drawable.ic_bolt_logo)
+            setColorFilter(Color.WHITE)
+            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            val iconPad = (sizePx * 0.22f).toInt()
+            setPadding(iconPad, iconPad, iconPad, iconPad)
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
         }
-        layout.addView(tv)
+        layout.addView(iv)
 
         layout.setOnClickListener {
             isToolsMenuExpanded = !isToolsMenuExpanded
@@ -404,6 +419,10 @@ class FloatingBubbleService : Service() {
         layout.setOnLongClickListener {
             // Quick shortcut: long press toggles Facebook directly!
             toggleFloatingFacebookWindow()
+            // Auto collapse floating bar to main bubble
+            isMinimized = true
+            isToolsMenuExpanded = false
+            updateOverlayContent(repository.sheetState.value)
             true
         }
 
@@ -412,7 +431,8 @@ class FloatingBubbleService : Service() {
 
     /**
      * Special circular floating bubble for MailGen Inbox reading.
-     * Clicking it opens/toggles the compact draggable Inbox Window.
+     * Clicking it opens/toggles the compact draggable Inbox Window
+     * and automatically minimizes the floating bar back to the single main bubble!
      */
     private fun createSpecialInboxButton(sizePx: Int): View {
         val layout = FrameLayout(this).apply {
@@ -425,34 +445,41 @@ class FloatingBubbleService : Service() {
 
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            colors = intArrayOf(Color.parseColor("#8B5CF6"), Color.parseColor("#6366F1")) // Vibrant Violet / Indigo
+            colors = intArrayOf(Color.parseColor("#F43F5E"), Color.parseColor("#9333EA")) // Glowing Rose to Purple
             orientation = GradientDrawable.Orientation.TL_BR
-            setStroke(dpToPx(2f), Color.WHITE)
+            setStroke(dpToPx(2.5f), Color.WHITE)
         }
         layout.background = bg
-        layout.elevation = dpToPx(4).toFloat()
+        layout.elevation = dpToPx(8).toFloat()
 
-        val tv = TextView(this).apply {
-            text = "✉️"
-            textSize = 17f
-            gravity = Gravity.CENTER
+        val iv = android.widget.ImageView(this).apply {
+            setImageResource(R.drawable.ic_mail_logo)
+            setColorFilter(Color.WHITE)
+            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            val iconPad = (sizePx * 0.22f).toInt()
+            setPadding(iconPad, iconPad, iconPad, iconPad)
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
         }
-        layout.addView(tv)
+        layout.addView(iv)
 
         layout.setOnClickListener {
             toggleFloatingInboxWindow()
+            // Auto collapse floating bar back to the single main bubble
+            isMinimized = true
+            isToolsMenuExpanded = false
+            updateOverlayContent(repository.sheetState.value)
         }
 
         return layout
     }
 
     /**
-     * Special circular floating bubble for Facebook Web window (🔵 FB).
-     * Clicking it opens the floating mobile Facebook overlay for logging in and copying UID.
+     * Special circular floating bubble for Facebook Web window (Official FB Icon).
+     * Clicking it opens the floating mobile Facebook overlay for logging in and copying UID
+     * and automatically minimizes the floating bar back to the single main bubble!
      */
     private fun createSpecialFacebookButton(sizePx: Int): View {
         val layout = FrameLayout(this).apply {
@@ -463,30 +490,97 @@ class FloatingBubbleService : Service() {
             layoutParams = lp
         }
 
+        // Glowing official Facebook blue background with bright white border
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            colors = intArrayOf(Color.parseColor("#1877F2"), Color.parseColor("#0C63D4")) // Facebook signature blue
+            colors = intArrayOf(Color.parseColor("#1877F2"), Color.parseColor("#0855BE")) // Authentic Glowing FB Blue
             orientation = GradientDrawable.Orientation.TL_BR
             setStroke(dpToPx(2.5f), Color.WHITE)
         }
         layout.background = bg
-        layout.elevation = dpToPx(5).toFloat()
+        layout.elevation = dpToPx(8).toFloat()
 
-        val tv = TextView(this).apply {
-            text = "f"
-            setTextColor(Color.WHITE)
-            textSize = 21f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
+        // Authentic Official Facebook Vector Logo!
+        val iv = android.widget.ImageView(this).apply {
+            setImageResource(R.drawable.ic_facebook_logo)
+            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            val iconPad = (sizePx * 0.12f).toInt()
+            setPadding(iconPad, iconPad, iconPad, iconPad)
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
         }
-        layout.addView(tv)
+        layout.addView(iv)
 
         layout.setOnClickListener {
             toggleFloatingFacebookWindow()
+            // Auto collapse floating bar back to the single main bubble
+            isMinimized = true
+            isToolsMenuExpanded = false
+            updateOverlayContent(repository.sheetState.value)
+        }
+
+        return layout
+    }
+
+    /**
+     * Special circular floating bubble for USA Male Names generator (Official User Vector).
+     * Clicking it opens the floating Name Generator card and collapses the bar to the single main bubble.
+     * Long-clicking it immediately copies a new random First Name and collapses to the main bubble.
+     */
+    private fun createSpecialNameButton(sizePx: Int): View {
+        val layout = FrameLayout(this).apply {
+            val lp = LinearLayout.LayoutParams(sizePx, sizePx).apply {
+                val margin = dpToPx(3)
+                setMargins(margin, margin, margin, margin)
+            }
+            layoutParams = lp
+        }
+
+        val bg = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            colors = intArrayOf(Color.parseColor("#10B981"), Color.parseColor("#06B6D4")) // Glowing Emerald to Cyan
+            orientation = GradientDrawable.Orientation.TL_BR
+            setStroke(dpToPx(2.5f), Color.WHITE)
+        }
+        layout.background = bg
+        layout.elevation = dpToPx(8).toFloat()
+
+        val iv = android.widget.ImageView(this).apply {
+            setImageResource(R.drawable.ic_person_logo)
+            setColorFilter(Color.WHITE)
+            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            val iconPad = (sizePx * 0.22f).toInt()
+            setPadding(iconPad, iconPad, iconPad, iconPad)
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        layout.addView(iv)
+
+        layout.setOnClickListener {
+            toggleFloatingNameWindow()
+            // Auto collapse floating bar back to the single main bubble
+            isMinimized = true
+            isToolsMenuExpanded = false
+            updateOverlayContent(repository.sheetState.value)
+        }
+
+        layout.setOnLongClickListener {
+            // Quick action: Long-press instantly rolls and copies a new First Name
+            val newPerson = com.example.data.model.UsaNameGenerator.nextRandomName()
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            val clip = android.content.ClipData.newPlainText("USA First Name", newPerson.firstName)
+            clipboard.setPrimaryClip(clip)
+            triggerHapticFeedback()
+            Toast.makeText(applicationContext, "⚡ Rolled & copied First Name: ${newPerson.firstName}", Toast.LENGTH_SHORT).show()
+            // Auto collapse floating bar back to the single main bubble
+            isMinimized = true
+            isToolsMenuExpanded = false
+            updateOverlayContent(repository.sheetState.value)
+            true
         }
 
         return layout
@@ -535,6 +629,20 @@ class FloatingBubbleService : Service() {
         }
     }
 
+    private fun toggleFloatingNameWindow() {
+        if (floatingNameWindow?.isShowing == true) {
+            floatingNameWindow?.dismiss()
+        } else {
+            if (floatingNameWindow == null) {
+                floatingNameWindow = FloatingNameWindow(this, windowManager) {
+                    // Closed callback
+                }
+            }
+            floatingNameWindow?.show()
+            bringOverlayToFront()
+        }
+    }
+
     private fun createColumnButton(
         colName: String,
         colorHex: String,
@@ -551,24 +659,30 @@ class FloatingBubbleService : Service() {
 
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setColor(Color.parseColor(colorHex))
-            // Crisp white border
+            colors = if (isPasted) {
+                intArrayOf(Color.parseColor("#34D399"), Color.parseColor("#059669")) // Luminous Glowing Emerald Green
+            } else {
+                intArrayOf(Color.parseColor("#60A5FA"), Color.parseColor("#1D4ED8")) // Glowing Vivid Royal Blue
+            }
+            orientation = GradientDrawable.Orientation.TL_BR
+            // Brilliant, crisp white rim for high contrast
             setStroke(dpToPx(2.5f), Color.WHITE)
         }
         layout.background = bg
-        layout.elevation = dpToPx(if (isPasted) 6 else 4).toFloat()
+        layout.elevation = dpToPx(8).toFloat()
 
         val tv = TextView(this).apply {
             text = if (isPasted) "$colName✓" else colName
             setTextColor(Color.WHITE)
             // Dynamically scale font based on column name length and checkmark
             textSize = when {
-                colName.length <= 2 -> if (isPasted) 13f else 16f
-                colName.length <= 4 -> 12f
-                else -> 10f
+                colName.length <= 2 -> if (isPasted) 13.5f else 16.5f
+                colName.length <= 4 -> 12.5f
+                else -> 10.5f
             }
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
+            setShadowLayer(dpToPx(3).toFloat(), 0f, dpToPx(1.5f).toFloat(), Color.parseColor("#B3000000"))
             setPadding(dpToPx(2), dpToPx(2), dpToPx(2), dpToPx(2))
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -645,6 +759,8 @@ class FloatingBubbleService : Service() {
         floatingInboxWindow = null
         floatingFacebookWindow?.dismiss()
         floatingFacebookWindow = null
+        floatingNameWindow?.dismiss()
+        floatingNameWindow = null
         overlayRootView?.let { root ->
             try {
                 windowManager.removeView(root)

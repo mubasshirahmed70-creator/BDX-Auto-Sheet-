@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Official Facebook circular background with white 'f' logo -->
+    <path
+        android:fillColor="#1877F2"
+        android:pathData="M12,2C6.477,2 2,6.477 2,12c0,4.991 3.657,9.128 8.438,9.879V14.89h-2.54V12h2.54V9.797c0,-2.506 1.492,-3.89 3.777,-3.89 1.094,0 2.238,0.195 2.238,0.195v2.46h-1.26c-1.243,0 -1.63,0.771 -1.63,1.562V12h2.773l-0.443,2.89h-2.33v7.001C18.343,21.144 22,17.004 22,12c0,-5.523 -4.477,-10 -10,-10z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M15.545,14.89L15.988,12H13.215V9.924c0,-0.791 0.387,-1.562 1.63,-1.562h1.26V5.902s-1.144,-0.195 -2.238,-0.195c-2.285,0 -3.777,1.384 -3.777,3.89V12H7.55v2.89h2.54v6.989c0.627,0.098 1.269,0.149 1.925,0.149 0.656,0 1.298,-0.051 1.925,-0.149V14.89h1.605z" />
+</vector>

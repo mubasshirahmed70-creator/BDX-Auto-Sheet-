@@ -530,7 +530,8 @@ private fun HowToUseAppCard(sheetState: SheetState) {
                         "   - Automatic Discard: When OTP arrives, that mail is automatically retired/বাতিল so it is never reused!\n\n" +
                         "• ⚡ Special Tools Hub: Tap the ⚡/🛠️ button to expand quick tools:\n" +
                         "   - ✉️ MailGen Inbox: Read temporary mail, copy email & fetch OTPs.\n" +
-                        "   - 🔵 Facebook Web: Floating mobile Facebook window! Log in freely with automatic typing, and 1-tap 'COPY UID' or 'COPY COOKIE' to grab account ID or full cookies straight to clipboard!\n\n" +
+                        "   - 🔵 Facebook Web: Floating mobile Facebook window! Log in freely with automatic typing, and 1-tap 'COPY UID' or 'COPY COOKIE' to grab account ID or full cookies straight to clipboard!\n" +
+                        "   - 👤 USA Male Names: Floating name generator! 1-tap separate copying for First Name and Last Name, Full Name copy, and random roll (🎲 Next) from 30,000+ realistic USA male name combinations!\n\n" +
                         "• Round Progression: Data is recorded row by row. Tapping '$firstCol' or finishing a round advances to the next row automatically.\n\n" +
                         "• Sheet & Export: Tap 'OPEN SHEET' to review, edit cells, or export everything to Excel (.xlsx) anytime.",
                 style = MaterialTheme.typography.bodySmall,

@@ -191,8 +191,18 @@ class FloatingFacebookWindow(
             setPadding(0, 0, dpToPx(4), 0)
         }
 
+        // Authentic Facebook Vector Logo
+        val fbLogoIv = android.widget.ImageView(context).apply {
+            setImageResource(com.example.R.drawable.ic_facebook_logo)
+            val logoSize = dpToPx(18)
+            val lp = LinearLayout.LayoutParams(logoSize, logoSize).apply {
+                marginEnd = dpToPx(6)
+            }
+            layoutParams = lp
+        }
+
         val titleView = TextView(context).apply {
-            text = "🔵 Facebook Web"
+            text = "Facebook Web"
             setTextColor(Color.WHITE)
             textSize = 13.5f
             setTypeface(null, Typeface.BOLD)
@@ -212,6 +222,7 @@ class FloatingFacebookWindow(
         }
 
         headerBar.addView(dragHandle)
+        headerBar.addView(fbLogoIv)
         headerBar.addView(titleView)
         headerBar.addView(minimizeBtn)
         headerBar.addView(closeBtn)
