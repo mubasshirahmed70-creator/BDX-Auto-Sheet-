@@ -137,11 +137,11 @@ class FloatingNameWindow(
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(14).toFloat()
                 colors = intArrayOf(
-                    Color.parseColor("#0F172A"), // Slate 900
-                    Color.parseColor("#1E293B")  // Slate 800
+                    Color.parseColor("#08080C"), // Hacker Obsidian Black
+                    Color.parseColor("#18070B")  // Deep Cyber Crimson Tint
                 )
                 orientation = GradientDrawable.Orientation.TOP_BOTTOM
-                setStroke(dpToPx(2), Color.parseColor("#06B6D4")) // Glowing Cyan
+                setStroke(dpToPx(2), Color.parseColor("#EF4444")) // Glowing Hacker Red
             }
             background = bg
             elevation = dpToPx(10).toFloat()
@@ -161,7 +161,7 @@ class FloatingNameWindow(
 
         val titleTv = TextView(context).apply {
             text = "🇺🇸 USA Name"
-            setTextColor(Color.parseColor("#E0F2FE")) // Crisp light cyan
+            setTextColor(Color.parseColor("#FCA5A5")) // Crisp Hacker Red/Rose
             textSize = 12f
             typeface = Typeface.DEFAULT_BOLD
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)

@@ -117,9 +117,9 @@ fun SplashScreen(
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF0F172A), // Deep slate navy
-                        Color(0xFF1E293B),
-                        Color(0xFF0A0F1D)
+                        Color(0xFF050508), // Pitch Obsidian Black
+                        Color(0xFF1A060A), // Deep Blood Crimson
+                        Color(0xFF040406)
                     )
                 )
             ),
@@ -128,15 +128,15 @@ fun SplashScreen(
         // Ambient background glow behind logo
         Box(
             modifier = Modifier
-                .size(160.dp)
+                .size(175.dp)
                 .scale(glowScale)
-                .alpha(logoAlpha.value * 0.25f)
+                .alpha(logoAlpha.value * 0.35f)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
-                            Color(0xFF38BDF8),
-                            Color(0xFF1D4ED8),
+                            Color(0xFFFF1E42),
+                            Color(0xFF991B1B),
                             Color.Transparent
                         )
                     )
@@ -151,7 +151,7 @@ fun SplashScreen(
             // Animated App Logo
             Surface(
                 shape = RoundedCornerShape(24.dp),
-                shadowElevation = 10.dp,
+                shadowElevation = 12.dp,
                 color = Color.Transparent,
                 modifier = Modifier
                     .size(108.dp)
@@ -187,7 +187,7 @@ fun SplashScreen(
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 2.5.sp,
-                color = Color(0xFF38BDF8), // Vibrant cyan
+                color = Color(0xFFFF1E42), // Glowing Hacker Red
                 modifier = Modifier.alpha(subtitleAlpha.value)
             )
 
@@ -203,8 +203,8 @@ fun SplashScreen(
             ) {
                 LinearProgressIndicator(
                     modifier = Modifier.fillMaxSize(),
-                    color = Color(0xFF38BDF8),
-                    trackColor = Color(0xFF1E293B)
+                    color = Color(0xFFFF1E42),
+                    trackColor = Color(0xFF2A0A10)
                 )
             }
         }

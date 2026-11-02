@@ -209,8 +209,12 @@ class FloatingInboxWindow(
             val cardBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(16).toFloat()
-                setColor(Color.parseColor("#1E222D")) // Premium dark navy slate
-                setStroke(dpToPx(1.5f), Color.parseColor("#384252"))
+                colors = intArrayOf(
+                    Color.parseColor("#08080C"), // Hacker Obsidian Black
+                    Color.parseColor("#18070B")  // Deep Cyber Crimson Tint
+                )
+                orientation = GradientDrawable.Orientation.TOP_BOTTOM
+                setStroke(dpToPx(2f), Color.parseColor("#EF4444")) // Glowing Hacker Red Border
             }
             background = cardBg
             setPadding(dpToPx(12), dpToPx(8), dpToPx(12), dpToPx(12))
@@ -251,7 +255,7 @@ class FloatingInboxWindow(
         // Crisp vector mail icon
         val mailLogoIv = android.widget.ImageView(context).apply {
             setImageResource(com.example.R.drawable.ic_mail_logo)
-            setColorFilter(Color.parseColor("#38BDF8")) // Crisp Electric Sky Blue
+            setColorFilter(Color.parseColor("#FF2E4C")) // Glowing Hacker Red
             val logoSize = dpToPx(18)
             val lp = LinearLayout.LayoutParams(logoSize, logoSize).apply {
                 marginEnd = dpToPx(6)
@@ -269,17 +273,18 @@ class FloatingInboxWindow(
 
         val closeButton = TextView(context).apply {
             text = "✕"
-            setTextColor(Color.parseColor("#94A3B8"))
+            setTextColor(Color.WHITE)
             textSize = 15f
             setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
             setPadding(dpToPx(10), dpToPx(4), dpToPx(10), dpToPx(4))
-            val ripple = createRippleDrawable(Color.parseColor("#334155"), dpToPx(12))
+            val ripple = createRippleDrawable(Color.parseColor("#991B1B"), dpToPx(12))
             background = ripple
             setOnClickListener { dismiss() }
         }
 
         headerLayout.addView(dragHandle)
+        headerLayout.addView(mailLogoIv)
         headerLayout.addView(titleText)
         headerLayout.addView(closeButton)
 
@@ -483,8 +488,9 @@ class FloatingInboxWindow(
             val btnBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(8).toFloat()
-                colors = intArrayOf(Color.parseColor("#6366F1"), Color.parseColor("#4F46E5"))
+                colors = intArrayOf(Color.parseColor("#EF4444"), Color.parseColor("#991B1B"))
                 orientation = GradientDrawable.Orientation.LEFT_RIGHT
+                setStroke(dpToPx(1.5f), Color.WHITE)
             }
             background = btnBg
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -816,8 +822,8 @@ class FloatingInboxWindow(
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(10).toFloat()
-                colors = intArrayOf(Color.parseColor("#172554"), Color.parseColor("#1E1B4B")) // Deep Royal / Indigo gradient
-                setStroke(dpToPx(1.2f), Color.parseColor("#3B82F6"))
+                colors = intArrayOf(Color.parseColor("#18070B"), Color.parseColor("#0D0D14")) // Deep Hacker Crimson / Obsidian
+                setStroke(dpToPx(1.2f), Color.parseColor("#DC2626"))
             }
             background = bg
             setPadding(dpToPx(10), dpToPx(8), dpToPx(10), dpToPx(8))

@@ -60,6 +60,7 @@ class FloatingBubbleService : Service() {
     private var floatingInboxWindow: FloatingInboxWindow? = null
     private var floatingFacebookWindow: FloatingFacebookWindow? = null
     private var floatingNameWindow: FloatingNameWindow? = null
+    private var floatingVoltxSmsWindow: FloatingVoltxSmsWindow? = null
     private var isToolsMenuExpanded: Boolean = false
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -216,8 +217,8 @@ class FloatingBubbleService : Service() {
         val backgroundDrawable = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             colors = intArrayOf(
-                Color.parseColor("#2563EB"), // Radiant Electric Royal Blue
-                Color.parseColor("#06B6D4")  // Radiant Cyan
+                Color.parseColor("#FF1E42"), // Glowing Cyber Crimson
+                Color.parseColor("#7F1D1D")  // Deep Hacker Blood Red
             )
             orientation = GradientDrawable.Orientation.TL_BR
             setStroke(dpToPx(3f), Color.WHITE) // Brilliant white rim
@@ -271,10 +272,12 @@ class FloatingBubbleService : Service() {
         mainLayout.addView(hubToggleButton)
 
         if (isToolsMenuExpanded) {
+            val voltxBtn = createSpecialVoltxSmsButton(buttonSizePx)
             val inboxBtn = createSpecialInboxButton(buttonSizePx)
             val fbBtn = createSpecialFacebookButton(buttonSizePx)
             val nameBtn = createSpecialNameButton(buttonSizePx)
 
+            mainLayout.addView(voltxBtn)
             mainLayout.addView(inboxBtn)
             mainLayout.addView(fbBtn)
             mainLayout.addView(nameBtn)
@@ -339,11 +342,11 @@ class FloatingBubbleService : Service() {
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             colors = intArrayOf(
-                Color.parseColor("#1D4ED8"), // Deep Vibrant Royal Blue
-                Color.parseColor("#0284C7")  // Sky Blue
+                Color.parseColor("#18080C"), // Obsidian Black
+                Color.parseColor("#DC2626")  // Glowing Crimson Red
             )
             orientation = GradientDrawable.Orientation.TL_BR
-            setStroke(dpToPx(2.5f), Color.WHITE)
+            setStroke(dpToPx(2.5f), Color.parseColor("#FF4D6D"))
         }
         layout.background = bg
         layout.elevation = dpToPx(6).toFloat()
@@ -388,9 +391,9 @@ class FloatingBubbleService : Service() {
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             colors = if (isToolsMenuExpanded) {
-                intArrayOf(Color.parseColor("#F59E0B"), Color.parseColor("#EA580C")) // Blazing Amber / Orange
+                intArrayOf(Color.parseColor("#F59E0B"), Color.parseColor("#B91C1C")) // Blazing Amber / Crimson
             } else {
-                intArrayOf(Color.parseColor("#C084FC"), Color.parseColor("#7C3AED")) // Vivid Electric Purple
+                intArrayOf(Color.parseColor("#EF4444"), Color.parseColor("#111116")) // Hacker Red / Black
             }
             orientation = GradientDrawable.Orientation.TL_BR
             setStroke(dpToPx(2.5f), Color.WHITE)
@@ -629,6 +632,66 @@ class FloatingBubbleService : Service() {
         }
     }
 
+    /**
+     * Special circular floating bubble for VOLTX SMS (Live Range Picker + Number + Auto-OTP).
+     * Clicking it opens FloatingVoltxSmsWindow and collapses the floating bar back to the main bubble.
+     */
+    private fun createSpecialVoltxSmsButton(sizePx: Int): View {
+        val layout = FrameLayout(this).apply {
+            val lp = LinearLayout.LayoutParams(sizePx, sizePx).apply {
+                val margin = dpToPx(3)
+                setMargins(margin, margin, margin, margin)
+            }
+            layoutParams = lp
+        }
+
+        val bg = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            colors = intArrayOf(Color.parseColor("#FF1E42"), Color.parseColor("#991B1B")) // Blazing Hacker Red
+            orientation = GradientDrawable.Orientation.TL_BR
+            setStroke(dpToPx(2.5f), Color.WHITE)
+        }
+        layout.background = bg
+        layout.elevation = dpToPx(8).toFloat()
+
+        val iv = android.widget.ImageView(this).apply {
+            setImageResource(R.drawable.ic_sms_logo)
+            setColorFilter(Color.WHITE)
+            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            val iconPad = (sizePx * 0.22f).toInt()
+            setPadding(iconPad, iconPad, iconPad, iconPad)
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        layout.addView(iv)
+
+        layout.setOnClickListener {
+            toggleFloatingVoltxSmsWindow()
+            // Auto collapse floating bar back to the single main bubble
+            isMinimized = true
+            isToolsMenuExpanded = false
+            updateOverlayContent(repository.sheetState.value)
+        }
+
+        return layout
+    }
+
+    private fun toggleFloatingVoltxSmsWindow() {
+        if (floatingVoltxSmsWindow?.isShowing == true) {
+            floatingVoltxSmsWindow?.dismiss()
+        } else {
+            if (floatingVoltxSmsWindow == null) {
+                floatingVoltxSmsWindow = FloatingVoltxSmsWindow(this, windowManager) {
+                    // Closed callback
+                }
+            }
+            floatingVoltxSmsWindow?.show()
+            bringOverlayToFront()
+        }
+    }
+
     private fun toggleFloatingNameWindow() {
         if (floatingNameWindow?.isShowing == true) {
             floatingNameWindow?.dismiss()
@@ -662,7 +725,7 @@ class FloatingBubbleService : Service() {
             colors = if (isPasted) {
                 intArrayOf(Color.parseColor("#34D399"), Color.parseColor("#059669")) // Luminous Glowing Emerald Green
             } else {
-                intArrayOf(Color.parseColor("#60A5FA"), Color.parseColor("#1D4ED8")) // Glowing Vivid Royal Blue
+                intArrayOf(Color.parseColor("#EF4444"), Color.parseColor("#7F1D1D")) // Glowing Hacker Crimson Red & Dark Blood
             }
             orientation = GradientDrawable.Orientation.TL_BR
             // Brilliant, crisp white rim for high contrast
@@ -761,6 +824,8 @@ class FloatingBubbleService : Service() {
         floatingFacebookWindow = null
         floatingNameWindow?.dismiss()
         floatingNameWindow = null
+        floatingVoltxSmsWindow?.dismiss()
+        floatingVoltxSmsWindow = null
         overlayRootView?.let { root ->
             try {
                 windowManager.removeView(root)

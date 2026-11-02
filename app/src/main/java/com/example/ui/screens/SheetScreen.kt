@@ -397,7 +397,7 @@ fun SheetScreen(
                                     text = "Excel Workbook (.xlsx)",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp,
-                                    color = Color(0xFF065F46)
+                                    color = Color(0xFF34D399)
                                 )
                                 Text(
                                     text = "Full formatting, rows & columns standard",
@@ -642,7 +642,7 @@ private fun TableDataRow(
             Text(
                 text = "$row",
                 fontWeight = if (isCurrentRound) FontWeight.ExtraBold else FontWeight.Medium,
-                color = if (isCurrentRound) PrimaryLight else Slate700,
+                color = if (isCurrentRound) PrimaryLight else Color(0xFFA1A1AA),
                 fontSize = 12.sp
             )
         }
