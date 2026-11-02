@@ -497,8 +497,8 @@ class FloatingVoltxSmsWindow(
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(7).toFloat()
                 if (isPrimary) {
-                    setColor(Color.parseColor("#DC2626"))
-                    setStroke(dpToPx(1f), Color.parseColor("#EF4444"))
+                    setColor(Color.parseColor("#181820"))
+                    setStroke(dpToPx(1.2f), Color.parseColor("#EF4444"))
                 } else {
                     setColor(Color.parseColor("#1E1E24"))
                     setStroke(dpToPx(1f), Color.parseColor("#3F3F46"))

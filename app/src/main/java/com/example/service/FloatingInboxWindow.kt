@@ -209,12 +209,8 @@ class FloatingInboxWindow(
             val cardBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(16).toFloat()
-                colors = intArrayOf(
-                    Color.parseColor("#08080C"), // Hacker Obsidian Black
-                    Color.parseColor("#18070B")  // Deep Cyber Crimson Tint
-                )
-                orientation = GradientDrawable.Orientation.TOP_BOTTOM
-                setStroke(dpToPx(2f), Color.parseColor("#EF4444")) // Glowing Hacker Red Border
+                setColor(Color.parseColor("#0D0D11")) // Matte Obsidian Black
+                setStroke(dpToPx(1.5f), Color.parseColor("#DC2626")) // Crisp Red Border
             }
             background = cardBg
             setPadding(dpToPx(12), dpToPx(8), dpToPx(12), dpToPx(12))
@@ -353,7 +349,8 @@ class FloatingInboxWindow(
             val btnBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(8).toFloat()
-                setColor(Color.parseColor("#2563EB")) // Bright Royal Blue
+                setColor(Color.parseColor("#181820"))
+                setStroke(dpToPx(1.2f), Color.parseColor("#EF4444"))
             }
             background = btnBg
             layoutParams = LinearLayout.LayoutParams(
@@ -488,9 +485,8 @@ class FloatingInboxWindow(
             val btnBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(8).toFloat()
-                colors = intArrayOf(Color.parseColor("#EF4444"), Color.parseColor("#991B1B"))
-                orientation = GradientDrawable.Orientation.LEFT_RIGHT
-                setStroke(dpToPx(1.5f), Color.WHITE)
+                setColor(Color.parseColor("#181820"))
+                setStroke(dpToPx(1.5f), Color.parseColor("#EF4444"))
             }
             background = btnBg
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -677,8 +673,8 @@ class FloatingInboxWindow(
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(10).toFloat()
-                colors = intArrayOf(Color.parseColor("#1E1B4B"), Color.parseColor("#312E81"))
-                setStroke(dpToPx(1.5f), Color.parseColor("#6366F1"))
+                setColor(Color.parseColor("#14141B"))
+                setStroke(dpToPx(1.5f), Color.parseColor("#EF4444"))
             }
             background = bg
             setPadding(dpToPx(10), dpToPx(8), dpToPx(10), dpToPx(8))
@@ -775,8 +771,8 @@ class FloatingInboxWindow(
             val btnBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(6).toFloat()
-                colors = intArrayOf(Color.parseColor("#6366F1"), Color.parseColor("#8B5CF6"))
-                orientation = GradientDrawable.Orientation.LEFT_RIGHT
+                setColor(Color.parseColor("#181820"))
+                setStroke(dpToPx(1.2f), Color.parseColor("#EF4444"))
             }
             background = btnBg
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
@@ -859,7 +855,8 @@ class FloatingInboxWindow(
             val btnBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#2563EB"))
+                setColor(Color.parseColor("#181820"))
+                setStroke(dpToPx(1f), Color.parseColor("#EF4444"))
             }
             background = btnBg
             layoutParams = LinearLayout.LayoutParams(
@@ -939,7 +936,8 @@ class FloatingInboxWindow(
             val btnBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#3B82F6"))
+                setColor(Color.parseColor("#181820"))
+                setStroke(dpToPx(1.2f), Color.parseColor("#EF4444"))
             }
             background = btnBg
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
@@ -966,7 +964,8 @@ class FloatingInboxWindow(
             val btnBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#10B981"))
+                setColor(Color.parseColor("#181820"))
+                setStroke(dpToPx(1.2f), Color.parseColor("#EF4444"))
             }
             background = btnBg
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {

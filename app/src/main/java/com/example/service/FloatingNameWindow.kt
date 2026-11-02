@@ -4,12 +4,10 @@ import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.RippleDrawable
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -32,13 +30,8 @@ import kotlin.math.abs
 
 /**
  * Super-compact, minimalist floating window for USA Male Names.
- * Contains only:
- * 1. First Name copy button
- * 2. Last Name copy button
- * 3. Random Name roll button (🎲)
- * 4. Close button (✕)
- *
- * Takes minimal screen space with vibrant, crystal-clear buttons.
+ * - Automatically generates a brand-new random name every time it opens AND after every copy click!
+ * - Styled in the Matte Black & Crimson Red theme.
  */
 class FloatingNameWindow(
     private val context: Context,
@@ -49,7 +42,7 @@ class FloatingNameWindow(
     private var rootView: View? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    private var currentPerson: UsaPersonName = UsaNameGenerator.currentName()
+    private var currentPerson: UsaPersonName = UsaNameGenerator.nextRandomName()
 
     // 2 main copy buttons
     private lateinit var firstNameBtn: TextView
@@ -61,6 +54,9 @@ class FloatingNameWindow(
     fun show() {
         if (isShowing) return
 
+        // Always roll a brand-new unique name every time the window opens!
+        currentPerson = UsaNameGenerator.nextRandomName()
+
         val layoutFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
@@ -70,7 +66,7 @@ class FloatingNameWindow(
 
         val displayMetrics = context.resources.displayMetrics
         val screenWidth = displayMetrics.widthPixels
-        val windowWidth = dpToPx(240).coerceAtMost((screenWidth * 0.85f).toInt())
+        val windowWidth = dpToPx(236).coerceAtMost((screenWidth * 0.85f).toInt())
 
         val params = WindowManager.LayoutParams(
             windowWidth,
@@ -101,6 +97,7 @@ class FloatingNameWindow(
 
     fun dismiss() {
         if (!isShowing) return
+        mainHandler.removeCallbacksAndMessages(null)
         rootView?.let {
             try {
                 windowManager.removeView(it)
@@ -123,7 +120,7 @@ class FloatingNameWindow(
             setPadding(dpToPx(4), dpToPx(4), dpToPx(4), dpToPx(4))
         }
 
-        // Sleek, ultra-compact card with luminous electric cyan border
+        // Sleek Matte Black card with crisp Crimson Red border
         val cardLayout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             val lp = FrameLayout.LayoutParams(
@@ -136,12 +133,8 @@ class FloatingNameWindow(
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(14).toFloat()
-                colors = intArrayOf(
-                    Color.parseColor("#08080C"), // Hacker Obsidian Black
-                    Color.parseColor("#18070B")  // Deep Cyber Crimson Tint
-                )
-                orientation = GradientDrawable.Orientation.TOP_BOTTOM
-                setStroke(dpToPx(2), Color.parseColor("#EF4444")) // Glowing Hacker Red
+                setColor(Color.parseColor("#0D0D11")) // Matte Obsidian Black
+                setStroke(dpToPx(1.5f), Color.parseColor("#DC2626")) // Crisp Red Accent Border
             }
             background = bg
             elevation = dpToPx(10).toFloat()
@@ -161,27 +154,27 @@ class FloatingNameWindow(
 
         val titleTv = TextView(context).apply {
             text = "🇺🇸 USA Name"
-            setTextColor(Color.parseColor("#FCA5A5")) // Crisp Hacker Red/Rose
+            setTextColor(Color.WHITE)
             textSize = 12f
             typeface = Typeface.DEFAULT_BOLD
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         header.addView(titleTv)
 
-        // Randomize button (🎲)
+        // Randomize button (🎲) - Matte Black with Red border
         val randomBtn = TextView(context).apply {
             text = "🎲"
-            textSize = 16f
+            textSize = 14f
             gravity = Gravity.CENTER
-            val size = dpToPx(28)
+            val size = dpToPx(26)
             layoutParams = LinearLayout.LayoutParams(size, size).apply {
                 marginEnd = dpToPx(4)
             }
             val btnBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#D97706")) // Bright Amber/Orange
-                setStroke(dpToPx(1), Color.parseColor("#FDE68A"))
+                setColor(Color.parseColor("#18181F"))
+                setStroke(dpToPx(1f), Color.parseColor("#EF4444"))
             }
             background = btnBg
             setOnClickListener {
@@ -194,16 +187,15 @@ class FloatingNameWindow(
         val closeBtn = TextView(context).apply {
             text = "✕"
             setTextColor(Color.WHITE)
-            textSize = 13f
+            textSize = 12f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            val size = dpToPx(28)
+            val size = dpToPx(26)
             layoutParams = LinearLayout.LayoutParams(size, size)
             val btnBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#EF4444")) // Bright Crimson Red
-                setStroke(dpToPx(1), Color.parseColor("#FECACA"))
+                setColor(Color.parseColor("#DC2626"))
             }
             background = btnBg
             setOnClickListener {
@@ -215,7 +207,7 @@ class FloatingNameWindow(
         setupDragTouchListener(header, params)
         cardLayout.addView(header)
 
-        // 2. Row with First Name & Last Name buttons
+        // 2. Row with First Name & Last Name buttons (Sleek Black with Red Accent Border)
         val buttonsRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -225,7 +217,7 @@ class FloatingNameWindow(
             )
         }
 
-        // First Name Button (Luminous Glowing Emerald/Teal gradient)
+        // First Name Button (Matte Black surface + Crimson Red border)
         firstNameBtn = TextView(context).apply {
             val lp = LinearLayout.LayoutParams(0, dpToPx(40), 1f).apply {
                 marginEnd = dpToPx(4)
@@ -235,26 +227,25 @@ class FloatingNameWindow(
             textSize = 12.5f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            setShadowLayer(dpToPx(2.5f).toFloat(), 0f, dpToPx(1f).toFloat(), Color.parseColor("#99000000"))
             val btnBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(9).toFloat()
                 colors = intArrayOf(
-                    Color.parseColor("#10B981"), // Glowing Emerald
-                    Color.parseColor("#0F766E")  // Rich Deep Teal
+                    Color.parseColor("#1A1A22"),
+                    Color.parseColor("#121217")
                 )
-                orientation = GradientDrawable.Orientation.TL_BR
-                setStroke(dpToPx(2f), Color.WHITE) // Glowing white rim
+                orientation = GradientDrawable.Orientation.TOP_BOTTOM
+                setStroke(dpToPx(1.5f), Color.parseColor("#EF4444"))
             }
             background = btnBg
-            elevation = dpToPx(6).toFloat()
+            elevation = dpToPx(4).toFloat()
             setOnClickListener {
-                copyFirstName()
+                copyFirstNameAndAutoRoll()
             }
         }
         buttonsRow.addView(firstNameBtn)
 
-        // Last Name Button (Luminous Glowing Royal Blue/Indigo gradient)
+        // Last Name Button (Matte Black surface + Crimson Red border)
         lastNameBtn = TextView(context).apply {
             val lp = LinearLayout.LayoutParams(0, dpToPx(40), 1f).apply {
                 marginStart = dpToPx(4)
@@ -264,21 +255,20 @@ class FloatingNameWindow(
             textSize = 12.5f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            setShadowLayer(dpToPx(2.5f).toFloat(), 0f, dpToPx(1f).toFloat(), Color.parseColor("#99000000"))
             val btnBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(9).toFloat()
                 colors = intArrayOf(
-                    Color.parseColor("#3B82F6"), // Glowing Electric Royal Blue
-                    Color.parseColor("#4338CA")  // Deep Indigo
+                    Color.parseColor("#1A1A22"),
+                    Color.parseColor("#121217")
                 )
-                orientation = GradientDrawable.Orientation.TL_BR
-                setStroke(dpToPx(2f), Color.WHITE) // Glowing white rim
+                orientation = GradientDrawable.Orientation.TOP_BOTTOM
+                setStroke(dpToPx(1.5f), Color.parseColor("#EF4444"))
             }
             background = btnBg
-            elevation = dpToPx(6).toFloat()
+            elevation = dpToPx(4).toFloat()
             setOnClickListener {
-                copyLastName()
+                copyLastNameAndAutoRoll()
             }
         }
         buttonsRow.addView(lastNameBtn)
@@ -295,36 +285,55 @@ class FloatingNameWindow(
     }
 
     private fun updateButtonLabels() {
+        if (!::firstNameBtn.isInitialized || !::lastNameBtn.isInitialized) return
         firstNameBtn.text = currentPerson.firstName
         lastNameBtn.text = currentPerson.lastName
     }
 
-    private fun copyFirstName() {
-        copyToClipboard("USA First Name", currentPerson.firstName)
+    /**
+     * Copies the current First Name AND immediately generates a brand-new different First Name
+     * so every single click gives a fresh name without needing to tap the random (🎲) button!
+     */
+    private fun copyFirstNameAndAutoRoll() {
+        val copiedFirst = currentPerson.firstName
+        copyToClipboard("USA First Name", copiedFirst)
         triggerHapticPulse()
 
-        firstNameBtn.text = "✓ Copied"
+        // Generate the next unique First Name immediately
+        val nextFirst = UsaNameGenerator.nextRandomFirstName()
+        currentPerson = currentPerson.copy(firstName = nextFirst)
+
+        firstNameBtn.text = "✓ $copiedFirst"
         mainHandler.postDelayed({
             if (isShowing) {
                 firstNameBtn.text = currentPerson.firstName
             }
-        }, 800)
+        }, 350)
 
-        Toast.makeText(context, "Copied: ${currentPerson.firstName}", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "Copied First Name: $copiedFirst", Toast.LENGTH_SHORT).show()
     }
 
-    private fun copyLastName() {
-        copyToClipboard("USA Last Name", currentPerson.lastName)
+    /**
+     * Copies the current Last Name AND immediately generates a brand-new different Last Name
+     * so every single click gives a fresh surname without needing to tap the random (🎲) button!
+     */
+    private fun copyLastNameAndAutoRoll() {
+        val copiedLast = currentPerson.lastName
+        copyToClipboard("USA Last Name", copiedLast)
         triggerHapticPulse()
 
-        lastNameBtn.text = "✓ Copied"
+        // Generate the next unique Last Name immediately
+        val nextLast = UsaNameGenerator.nextRandomLastName()
+        currentPerson = currentPerson.copy(lastName = nextLast)
+
+        lastNameBtn.text = "✓ $copiedLast"
         mainHandler.postDelayed({
             if (isShowing) {
                 lastNameBtn.text = currentPerson.lastName
             }
-        }, 800)
+        }, 350)
 
-        Toast.makeText(context, "Copied: ${currentPerson.lastName}", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "Copied Last Name: $copiedLast", Toast.LENGTH_SHORT).show()
     }
 
     private fun copyToClipboard(label: String, text: String) {

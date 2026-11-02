@@ -339,8 +339,8 @@ fun SetupScreen(
                             modifier = Modifier
                                 .size(sizeDp)
                                 .clip(CircleShape)
-                                .background(PrimaryLight)
-                                .border(2.dp, Color.White, CircleShape),
+                                .background(Color(0xFF181820))
+                                .border(2.5.dp, HackerNeonRed, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -418,9 +418,10 @@ fun SetupScreen(
                 },
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = HackerCrimson,
+                    containerColor = Color(0xFF141419),
                     contentColor = Color.White
                 ),
+                border = BorderStroke(1.3.dp, HackerNeonRed),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
@@ -433,6 +434,7 @@ fun SetupScreen(
                     Icon(
                         imageVector = Icons.Default.Save,
                         contentDescription = null,
+                        tint = HackerNeonRed,
                         modifier = Modifier.size(22.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
@@ -607,9 +609,10 @@ private fun VoltxSmsSetupCard(
                     onClick = onSaveApiKey,
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = HackerCrimson,
+                        containerColor = Color(0xFF1A1A22),
                         contentColor = Color.White
                     ),
+                    border = BorderStroke(1.2.dp, HackerNeonRed),
                     modifier = Modifier
                         .weight(1.3f)
                         .height(44.dp)
@@ -618,6 +621,7 @@ private fun VoltxSmsSetupCard(
                     Icon(
                         imageVector = Icons.Default.Key,
                         contentDescription = null,
+                        tint = HackerNeonRed,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))

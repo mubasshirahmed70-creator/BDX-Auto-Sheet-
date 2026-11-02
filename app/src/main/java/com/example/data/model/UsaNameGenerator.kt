@@ -34,10 +34,10 @@ object UsaNameGenerator {
         "Wesley", "Everett", "Hudson", "Lincoln", "Cooper", "Brody", "Sawyer", "Bentley",
         "Ryker", "Jace", "Brantley", "Kaiden", "Brayden", "Hayden", "Gage", "Tristan",
         "Chase", "Cole", "Trevor", "Colby", "Garrett", "Spencer", "Tanner", "Dalton",
-        "Grant", "Preston", "Dustin", "Cody", "Shane", "Travis", "Corey", "Derrick",
+        "Grant", "Preston", "Dustin", "Cody", "Shane", "Corey", "Derrick",
         "Brett", "Marcus", "Malcolm", "Troy", "Bryce", "Blake", "Devin", "Mitchell",
-        "Colin", "Damian", "Curtis", "Corey", "Keith", "Clint", "Dean", "Lance", "Wade"
-    )
+        "Colin", "Damian", "Curtis", "Clint", "Dean", "Lance", "Wade"
+    ).distinct()
 
     val SURNAMES = listOf(
         "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
@@ -55,40 +55,102 @@ object UsaNameGenerator {
         "Long", "Ross", "Foster", "Jimenez", "Powell", "Jenkins", "Perry", "Russell",
         "Sullivan", "Bell", "Coleman", "Butler", "Henderson", "Barnes", "Gonzales",
         "Fisher", "Vasquez", "Simmons", "Romero", "Jordan", "Patterson", "Alexander",
-        "Hamilton", "Graham", "Reynolds", "Griffin", "Wallace", "More", "West", "Cole",
+        "Hamilton", "Graham", "Reynolds", "Griffin", "Wallace", "West", "Cole",
         "Hayes", "Bryant", "Herrera", "Gibson", "Ellis", "Tran", "Medina", "Aguilar",
         "Stevens", "Murray", "Ford", "Castro", "Marshall", "Owens", "Harrison",
         "Fernandez", "McDonald", "Woods", "Washington", "Kennedy", "Wells", "Vargas",
         "Henry", "Chen", "Freeman", "Webb", "Tucker", "Guzman", "Burns", "Crawford",
         "Olson", "Simpson", "Porter", "Hunter", "Gordon", "Mendez", "Silva", "Shaw",
-        "Snyder", "Mason", "Dixon", "Muñoz", "Hunt", "Hicks", "Holmes", "Palmer",
+        "Snyder", "Mason", "Dixon", "Hunt", "Hicks", "Holmes", "Palmer",
         "Wagner", "Black", "Robertson", "Boyd", "Rose", "Stone", "Salazar", "Fox",
         "Warren", "Mills", "Meyer", "Rice", "Schmidt", "Garza", "Daniels", "Ferguson",
         "Nichols", "Stephens", "Soto", "Weaver", "Ryan", "Gardner", "Payne", "Grant"
-    )
+    ).distinct()
+
+    private val firstNameDeck = ArrayDeque<String>()
+    private val lastNameDeck = ArrayDeque<String>()
+    private var lastPickedFirst: String = ""
+    private var lastPickedLast: String = ""
 
     private val history = LinkedList<UsaPersonName>()
     private var historyIndex = -1
     private const val MAX_HISTORY = 50
 
     @Synchronized
-    fun nextRandomName(): UsaPersonName {
-        val first = MALE_FIRST_NAMES[Random.nextInt(MALE_FIRST_NAMES.size)]
-        val last = SURNAMES[Random.nextInt(SURNAMES.size)]
-        val person = UsaPersonName(first, last)
+    private fun drawUniqueFirstName(): String {
+        if (firstNameDeck.isEmpty()) {
+            val shuffled = MALE_FIRST_NAMES.shuffled(Random(System.nanoTime()))
+            firstNameDeck.addAll(shuffled)
+            // Ensure first of new deck doesn't match last picked
+            if (firstNameDeck.size > 1 && firstNameDeck.first() == lastPickedFirst) {
+                val first = firstNameDeck.removeFirst()
+                firstNameDeck.addLast(first)
+            }
+        }
+        val next = firstNameDeck.removeFirst()
+        lastPickedFirst = next
+        return next
+    }
 
-        // If we were browsing back in history and rolled a new name, drop forward history
+    @Synchronized
+    private fun drawUniqueLastName(): String {
+        if (lastNameDeck.isEmpty()) {
+            val shuffled = SURNAMES.shuffled(Random(System.nanoTime()))
+            lastNameDeck.addAll(shuffled)
+            if (lastNameDeck.size > 1 && lastNameDeck.first() == lastPickedLast) {
+                val first = lastNameDeck.removeFirst()
+                lastNameDeck.addLast(first)
+            }
+        }
+        val next = lastNameDeck.removeFirst()
+        lastPickedLast = next
+        return next
+    }
+
+    @Synchronized
+    fun nextRandomFirstName(): String {
+        val nextFirst = drawUniqueFirstName()
+        val currentLast = if (history.isNotEmpty() && historyIndex in history.indices) {
+            history[historyIndex].lastName
+        } else {
+            drawUniqueLastName()
+        }
+        val updated = UsaPersonName(nextFirst, currentLast)
+        recordInHistory(updated)
+        return nextFirst
+    }
+
+    @Synchronized
+    fun nextRandomLastName(): String {
+        val currentFirst = if (history.isNotEmpty() && historyIndex in history.indices) {
+            history[historyIndex].firstName
+        } else {
+            drawUniqueFirstName()
+        }
+        val nextLast = drawUniqueLastName()
+        val updated = UsaPersonName(currentFirst, nextLast)
+        recordInHistory(updated)
+        return nextLast
+    }
+
+    @Synchronized
+    fun nextRandomName(): UsaPersonName {
+        val first = drawUniqueFirstName()
+        val last = drawUniqueLastName()
+        val person = UsaPersonName(first, last)
+        recordInHistory(person)
+        return person
+    }
+
+    private fun recordInHistory(person: UsaPersonName) {
         while (history.size > historyIndex + 1 && historyIndex >= 0) {
             history.removeLast()
         }
-
         history.add(person)
         if (history.size > MAX_HISTORY) {
             history.removeFirst()
         }
         historyIndex = history.size - 1
-
-        return person
     }
 
     @Synchronized

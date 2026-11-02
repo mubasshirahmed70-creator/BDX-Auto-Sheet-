@@ -217,11 +217,11 @@ class FloatingBubbleService : Service() {
         val backgroundDrawable = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             colors = intArrayOf(
-                Color.parseColor("#FF1E42"), // Glowing Cyber Crimson
-                Color.parseColor("#7F1D1D")  // Deep Hacker Blood Red
+                Color.parseColor("#181820"), // Sleek Dark Charcoal
+                Color.parseColor("#09090D")  // Deep Obsidian Black
             )
             orientation = GradientDrawable.Orientation.TL_BR
-            setStroke(dpToPx(3f), Color.WHITE) // Brilliant white rim
+            setStroke(dpToPx(2.5f), Color.parseColor("#EF4444")) // Glowing Hacker Red Rim
         }
         layout.background = backgroundDrawable
         layout.elevation = dpToPx(8).toFloat()
@@ -267,7 +267,7 @@ class FloatingBubbleService : Service() {
         val headerButton = createHeaderControlView(buttonSizePx, state.currentRow)
         mainLayout.addView(headerButton)
 
-        // 3. Special Tools Hub (⚡ Tools Hub with MailGen ✉️ and Facebook Web 🔵)
+        // 3. Special Tools Hub (⚡ Tools Hub with VOLTX SMS, MailGen, Facebook Web, USA Names)
         val hubToggleButton = createSpecialHubToggleButton(buttonSizePx)
         mainLayout.addView(hubToggleButton)
 
@@ -283,7 +283,7 @@ class FloatingBubbleService : Service() {
             mainLayout.addView(nameBtn)
         }
 
-        // 4. Column Buttons (Uniform base color, changes to Green with checkmark when pasted in active round)
+        // 4. Column Buttons (Matte Black with Red border; turns Emerald Green with checkmark when pasted in active round)
         val columns = state.config.columns
         val currentRow = state.currentRow
         val cells = state.cells
@@ -293,9 +293,9 @@ class FloatingBubbleService : Service() {
             val showAsPasted = isPastedInCurrentRound && !isRoundCompleteReset
 
             val colorHex = if (showAsPasted) {
-                "#10B981" // Vibrant Emerald Green when pasted
+                "#10B981"
             } else {
-                "#2563EB" // All buttons start/reset with this exact SAME Royal Blue
+                "#14141B"
             }
 
             val btn = createColumnButton(
@@ -323,8 +323,8 @@ class FloatingBubbleService : Service() {
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(3).toFloat()
-                setColor(Color.parseColor("#F1F5F9")) // Luminous light grip
-                setStroke(dpToPx(1), Color.parseColor("#94A3B8"))
+                setColor(Color.parseColor("#181820"))
+                setStroke(dpToPx(1), Color.parseColor("#EF4444"))
             }
             background = bg
         }
@@ -342,11 +342,11 @@ class FloatingBubbleService : Service() {
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             colors = intArrayOf(
-                Color.parseColor("#18080C"), // Obsidian Black
-                Color.parseColor("#DC2626")  // Glowing Crimson Red
+                Color.parseColor("#181820"), // Matte Charcoal
+                Color.parseColor("#09090D")  // Obsidian Black
             )
             orientation = GradientDrawable.Orientation.TL_BR
-            setStroke(dpToPx(2.5f), Color.parseColor("#FF4D6D"))
+            setStroke(dpToPx(2.5f), Color.parseColor("#EF4444"))
         }
         layout.background = bg
         layout.elevation = dpToPx(6).toFloat()
@@ -376,7 +376,7 @@ class FloatingBubbleService : Service() {
 
     /**
      * Special Tools Hub Toggle Button (⚡ Tools).
-     * Clicking it expands or collapses the tools menu (MailGen ✉️, Facebook Web 🔵, USA Names 👤).
+     * Clicking it expands or collapses the tools menu (VOLTX SMS 💬, MailGen ✉️, Facebook Web 🔵, USA Names 👤).
      */
     private fun createSpecialHubToggleButton(sizePx: Int): View {
         val layout = FrameLayout(this).apply {
@@ -387,23 +387,22 @@ class FloatingBubbleService : Service() {
             layoutParams = lp
         }
 
-        // Luminous glowing neon circle
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             colors = if (isToolsMenuExpanded) {
-                intArrayOf(Color.parseColor("#F59E0B"), Color.parseColor("#B91C1C")) // Blazing Amber / Crimson
+                intArrayOf(Color.parseColor("#2A0F14"), Color.parseColor("#12090B")) // Active Dark Crimson-Black
             } else {
-                intArrayOf(Color.parseColor("#EF4444"), Color.parseColor("#111116")) // Hacker Red / Black
+                intArrayOf(Color.parseColor("#181820"), Color.parseColor("#09090D")) // Matte Black
             }
             orientation = GradientDrawable.Orientation.TL_BR
-            setStroke(dpToPx(2.5f), Color.WHITE)
+            setStroke(dpToPx(2.5f), Color.parseColor("#EF4444"))
         }
         layout.background = bg
         layout.elevation = dpToPx(8).toFloat()
 
         val iv = android.widget.ImageView(this).apply {
             setImageResource(R.drawable.ic_bolt_logo)
-            setColorFilter(Color.WHITE)
+            setColorFilter(Color.parseColor("#EF4444"))
             scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
             val iconPad = (sizePx * 0.22f).toInt()
             setPadding(iconPad, iconPad, iconPad, iconPad)
@@ -448,9 +447,9 @@ class FloatingBubbleService : Service() {
 
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            colors = intArrayOf(Color.parseColor("#F43F5E"), Color.parseColor("#9333EA")) // Glowing Rose to Purple
+            colors = intArrayOf(Color.parseColor("#181820"), Color.parseColor("#0A0A0F")) // Matte Black
             orientation = GradientDrawable.Orientation.TL_BR
-            setStroke(dpToPx(2.5f), Color.WHITE)
+            setStroke(dpToPx(2.5f), Color.parseColor("#EF4444")) // Glowing Red Rim
         }
         layout.background = bg
         layout.elevation = dpToPx(8).toFloat()
@@ -493,12 +492,12 @@ class FloatingBubbleService : Service() {
             layoutParams = lp
         }
 
-        // Glowing official Facebook blue background with bright white border
+        // Matte Black with Red outer rim and authentic Facebook logo inside
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            colors = intArrayOf(Color.parseColor("#1877F2"), Color.parseColor("#0855BE")) // Authentic Glowing FB Blue
+            colors = intArrayOf(Color.parseColor("#181820"), Color.parseColor("#0A0A0F"))
             orientation = GradientDrawable.Orientation.TL_BR
-            setStroke(dpToPx(2.5f), Color.WHITE)
+            setStroke(dpToPx(2.5f), Color.parseColor("#EF4444"))
         }
         layout.background = bg
         layout.elevation = dpToPx(8).toFloat()
@@ -507,7 +506,7 @@ class FloatingBubbleService : Service() {
         val iv = android.widget.ImageView(this).apply {
             setImageResource(R.drawable.ic_facebook_logo)
             scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
-            val iconPad = (sizePx * 0.12f).toInt()
+            val iconPad = (sizePx * 0.14f).toInt()
             setPadding(iconPad, iconPad, iconPad, iconPad)
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -543,9 +542,9 @@ class FloatingBubbleService : Service() {
 
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            colors = intArrayOf(Color.parseColor("#10B981"), Color.parseColor("#06B6D4")) // Glowing Emerald to Cyan
+            colors = intArrayOf(Color.parseColor("#181820"), Color.parseColor("#0A0A0F")) // Matte Black
             orientation = GradientDrawable.Orientation.TL_BR
-            setStroke(dpToPx(2.5f), Color.WHITE)
+            setStroke(dpToPx(2.5f), Color.parseColor("#EF4444")) // Glowing Red Rim
         }
         layout.background = bg
         layout.elevation = dpToPx(8).toFloat()
@@ -647,9 +646,9 @@ class FloatingBubbleService : Service() {
 
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            colors = intArrayOf(Color.parseColor("#FF1E42"), Color.parseColor("#991B1B")) // Blazing Hacker Red
+            colors = intArrayOf(Color.parseColor("#181820"), Color.parseColor("#0A0A0F")) // Matte Black
             orientation = GradientDrawable.Orientation.TL_BR
-            setStroke(dpToPx(2.5f), Color.WHITE)
+            setStroke(dpToPx(2.5f), Color.parseColor("#EF4444")) // Glowing Red Rim
         }
         layout.background = bg
         layout.elevation = dpToPx(8).toFloat()
@@ -723,13 +722,15 @@ class FloatingBubbleService : Service() {
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             colors = if (isPasted) {
-                intArrayOf(Color.parseColor("#34D399"), Color.parseColor("#059669")) // Luminous Glowing Emerald Green
+                intArrayOf(Color.parseColor("#065F46"), Color.parseColor("#064E3B")) // Dark Emerald when pasted
             } else {
-                intArrayOf(Color.parseColor("#EF4444"), Color.parseColor("#7F1D1D")) // Glowing Hacker Crimson Red & Dark Blood
+                intArrayOf(Color.parseColor("#181820"), Color.parseColor("#09090D")) // Sleek Matte Black
             }
             orientation = GradientDrawable.Orientation.TL_BR
-            // Brilliant, crisp white rim for high contrast
-            setStroke(dpToPx(2.5f), Color.WHITE)
+            setStroke(
+                dpToPx(2.5f),
+                if (isPasted) Color.parseColor("#10B981") else Color.parseColor("#EF4444")
+            )
         }
         layout.background = bg
         layout.elevation = dpToPx(8).toFloat()

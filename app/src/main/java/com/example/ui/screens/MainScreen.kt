@@ -340,9 +340,10 @@ private fun ActionButtonsSection(
         LargeActionButton(
             text = if (isServiceRunning) "STOP FLOATING BUBBLE" else stringResource(R.string.start_floating_bubble),
             icon = if (isServiceRunning) Icons.Default.Stop else Icons.Default.BubbleChart,
-            containerColor = if (isServiceRunning) Color(0xFF271215) else HackerCrimson,
+            containerColor = if (isServiceRunning) Color(0xFF1F0E12) else Color(0xFF141419),
             contentColor = Color.White,
-            borderColor = if (isServiceRunning) HackerNeonRed else HackerNeonRed,
+            iconTint = HackerNeonRed,
+            borderColor = HackerNeonRed,
             testTag = "start_floating_bubble_button",
             onClick = onToggleBubble
         )
@@ -353,7 +354,8 @@ private fun ActionButtonsSection(
             icon = Icons.Default.TableChart,
             containerColor = Color(0xFF141419),
             contentColor = Color.White,
-            borderColor = Color(0xFF2E2E36),
+            iconTint = HackerNeonRed,
+            borderColor = Color(0xFFDC2626),
             testTag = "open_sheet_button",
             onClick = onOpenSheet
         )
@@ -364,7 +366,8 @@ private fun ActionButtonsSection(
             icon = Icons.Default.Settings,
             containerColor = Color(0xFF141419),
             contentColor = Color.White,
-            borderColor = Color(0xFF2E2E36),
+            iconTint = HackerNeonRed,
+            borderColor = Color(0xFFDC2626),
             testTag = "setup_config_button",
             onClick = onOpenSetup
         )
@@ -377,6 +380,7 @@ private fun LargeActionButton(
     icon: ImageVector,
     containerColor: Color,
     contentColor: Color,
+    iconTint: Color,
     borderColor: Color,
     testTag: String,
     onClick: () -> Unit
@@ -388,7 +392,7 @@ private fun LargeActionButton(
             containerColor = containerColor,
             contentColor = contentColor
         ),
-        border = BorderStroke(1.2.dp, borderColor),
+        border = BorderStroke(1.3.dp, borderColor),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp, pressedElevation = 6.dp),
         modifier = Modifier
             .fillMaxWidth()
@@ -403,6 +407,7 @@ private fun LargeActionButton(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
+                tint = iconTint,
                 modifier = Modifier.size(22.dp)
             )
             Spacer(modifier = Modifier.width(10.dp))
