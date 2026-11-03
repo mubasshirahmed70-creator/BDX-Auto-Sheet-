@@ -114,10 +114,28 @@ class FloatingBubbleService : Service() {
         return START_STICKY
     }
 
+    private var themeCollectJob: Job? = null
+    private var structureCollectJob: Job? = null
+
     private fun observeSheetState() {
+        com.example.ui.theme.AppThemeManager.init(this)
         stateCollectJob = serviceScope.launch {
             repository.sheetState.collect { state ->
                 updateOverlayContent(state)
+            }
+        }
+        themeCollectJob = serviceScope.launch {
+            com.example.ui.theme.AppThemeManager.currentTheme.collect {
+                updateOverlayContent(repository.sheetState.value)
+                floatingVoltxSmsWindow?.refreshTheme()
+                floatingFacebookWindow?.refreshTheme()
+                floatingInboxWindow?.refreshTheme()
+                floatingNameWindow?.refreshTheme()
+            }
+        }
+        structureCollectJob = serviceScope.launch {
+            com.example.ui.theme.AppThemeManager.currentStructure.collect {
+                updateOverlayContent(repository.sheetState.value)
             }
         }
     }
@@ -195,7 +213,7 @@ class FloatingBubbleService : Service() {
         }
 
         if (isMinimized) {
-            // Minimized View: A compact, circular floating badge showing active row
+            // Minimized View: A compact floating badge showing active row
             val minContainer = createMinimizedPillView(buttonSize, state.currentRow)
             root.addView(minContainer)
             FloatingWindowAnimator.animatePopPulse(minContainer)
@@ -207,6 +225,10 @@ class FloatingBubbleService : Service() {
     }
 
     private fun createMinimizedPillView(sizePx: Int, currentRow: Int): View {
+        val theme = com.example.ui.theme.AppThemeManager.current
+        val structure = com.example.ui.theme.AppThemeManager.currentStructurePreset
+        val useGlassDock = structure.usesGlassDockOverlay
+
         val layout = FrameLayout(this).apply {
             val lp = FrameLayout.LayoutParams(sizePx, sizePx).apply {
                 val margin = dpToPx(3)
@@ -216,16 +238,27 @@ class FloatingBubbleService : Service() {
         }
 
         val backgroundDrawable = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            colors = intArrayOf(
-                Color.parseColor("#181820"), // Sleek Dark Charcoal
-                Color.parseColor("#09090D")  // Deep Obsidian Black
-            )
-            orientation = GradientDrawable.Orientation.TL_BR
-            setStroke(dpToPx(2.5f), Color.parseColor("#EF4444")) // Glowing Hacker Red Rim
+            if (useGlassDock) {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = (sizePx * 0.36f)
+                colors = intArrayOf(
+                    theme.headerStartInt,
+                    theme.cardInt
+                )
+                orientation = GradientDrawable.Orientation.TL_BR
+                setStroke(dpToPx(2f), theme.accentBrightInt)
+            } else {
+                shape = GradientDrawable.OVAL
+                colors = intArrayOf(
+                    theme.elevatedInt,
+                    theme.bgInt
+                )
+                orientation = GradientDrawable.Orientation.TL_BR
+                setStroke(dpToPx(2.5f), theme.accentBrightInt)
+            }
         }
         layout.background = backgroundDrawable
-        layout.elevation = dpToPx(8).toFloat()
+        layout.elevation = dpToPx(10).toFloat()
 
         val text = TextView(this).apply {
             text = "R$currentRow"
@@ -241,6 +274,24 @@ class FloatingBubbleService : Service() {
         }
         layout.addView(text)
 
+        if (useGlassDock) {
+            // Subtle glowing top-right live dot on the Glass Squircle badge
+            val liveDot = View(this).apply {
+                val dotSize = dpToPx(7)
+                layoutParams = FrameLayout.LayoutParams(dotSize, dotSize).apply {
+                    gravity = Gravity.TOP or Gravity.END
+                    val m = dpToPx(5)
+                    setMargins(m, m, m, m)
+                }
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Color.parseColor("#10B981"))
+                    setStroke(dpToPx(1), Color.WHITE)
+                }
+            }
+            layout.addView(liveDot)
+        }
+
         FloatingWindowAnimator.applyLiquidTouch(layout)
         layout.setOnClickListener {
             isMinimized = false
@@ -252,13 +303,32 @@ class FloatingBubbleService : Service() {
 
     private fun createExpandedView(state: SheetState, buttonSizePx: Int): View {
         val isHorizontal = state.config.isHorizontalBubbleLayout
+        val theme = com.example.ui.theme.AppThemeManager.current
+        val structure = com.example.ui.theme.AppThemeManager.currentStructurePreset
+        val useGlassDock = structure.usesGlassDockOverlay
 
-        // Completely transparent container so no rectangular border or shadow box is visible
         val mainLayout = LinearLayout(this).apply {
             orientation = if (isHorizontal) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(dpToPx(2), dpToPx(2), dpToPx(2), dpToPx(2))
-            background = null
+            if (useGlassDock) {
+                val pad = dpToPx(5)
+                setPadding(pad, pad, pad, pad)
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = (buttonSizePx * 0.65f)
+                    // Translucent Frosted Glass Capsule Dock
+                    colors = intArrayOf(
+                        Color.argb(232, Color.red(theme.bgInt), Color.green(theme.bgInt), Color.blue(theme.bgInt)),
+                        Color.argb(232, Color.red(theme.cardInt), Color.green(theme.cardInt), Color.blue(theme.cardInt))
+                    )
+                    orientation = GradientDrawable.Orientation.TL_BR
+                    setStroke(dpToPx(1.5f), theme.accentBrightInt)
+                }
+                elevation = dpToPx(12).toFloat()
+            } else {
+                setPadding(dpToPx(2), dpToPx(2), dpToPx(2), dpToPx(2))
+                background = null
+            }
         }
 
         var animIdx = 0
@@ -294,7 +364,7 @@ class FloatingBubbleService : Service() {
             FloatingWindowAnimator.animateListItemWave(nameBtn, animIdx++)
         }
 
-        // 4. Column Buttons (Matte Black with Red border; turns Emerald Green with checkmark when pasted in active round)
+        // 4. Column Buttons (Themed surface with Accent border; turns Emerald Green with checkmark when pasted in active round)
         val columns = state.config.columns
         val currentRow = state.currentRow
         val cells = state.cells
@@ -306,7 +376,7 @@ class FloatingBubbleService : Service() {
             val colorHex = if (showAsPasted) {
                 "#10B981"
             } else {
-                "#14141B"
+                com.example.ui.theme.AppThemeManager.current.cardHex
             }
 
             val btn = createColumnButton(
@@ -323,6 +393,7 @@ class FloatingBubbleService : Service() {
     }
 
     private fun createDragHandleView(isHorizontal: Boolean): View {
+        val theme = com.example.ui.theme.AppThemeManager.current
         return View(this).apply {
             val width = if (isHorizontal) dpToPx(6) else dpToPx(26)
             val height = if (isHorizontal) dpToPx(26) else dpToPx(6)
@@ -335,14 +406,15 @@ class FloatingBubbleService : Service() {
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(3).toFloat()
-                setColor(Color.parseColor("#181820"))
-                setStroke(dpToPx(1), Color.parseColor("#EF4444"))
+                setColor(theme.elevatedInt)
+                setStroke(dpToPx(1), theme.accentBrightInt)
             }
             background = bg
         }
     }
 
     private fun createHeaderControlView(sizePx: Int, currentRow: Int): View {
+        val theme = com.example.ui.theme.AppThemeManager.current
         val layout = FrameLayout(this).apply {
             val lp = LinearLayout.LayoutParams(sizePx, sizePx).apply {
                 val margin = dpToPx(3)
@@ -354,11 +426,11 @@ class FloatingBubbleService : Service() {
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             colors = intArrayOf(
-                Color.parseColor("#181820"), // Matte Charcoal
-                Color.parseColor("#09090D")  // Obsidian Black
+                theme.elevatedInt,
+                theme.bgInt
             )
             orientation = GradientDrawable.Orientation.TL_BR
-            setStroke(dpToPx(2.5f), Color.parseColor("#EF4444"))
+            setStroke(dpToPx(2.5f), theme.accentBrightInt)
         }
         layout.background = bg
         layout.elevation = dpToPx(6).toFloat()
@@ -392,6 +464,7 @@ class FloatingBubbleService : Service() {
      * Clicking it expands or collapses the tools menu (VOLTX SMS 💬, MailGen ✉️, Facebook Web 🔵, USA Names 👤).
      */
     private fun createSpecialHubToggleButton(sizePx: Int): View {
+        val theme = com.example.ui.theme.AppThemeManager.current
         val layout = FrameLayout(this).apply {
             val lp = LinearLayout.LayoutParams(sizePx, sizePx).apply {
                 val margin = dpToPx(3)
@@ -403,19 +476,19 @@ class FloatingBubbleService : Service() {
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             colors = if (isToolsMenuExpanded) {
-                intArrayOf(Color.parseColor("#2A0F14"), Color.parseColor("#12090B")) // Active Dark Crimson-Black
+                intArrayOf(theme.accentSoftBgInt, theme.bgInt)
             } else {
-                intArrayOf(Color.parseColor("#181820"), Color.parseColor("#09090D")) // Matte Black
+                intArrayOf(theme.elevatedInt, theme.bgInt)
             }
             orientation = GradientDrawable.Orientation.TL_BR
-            setStroke(dpToPx(2.5f), Color.parseColor("#EF4444"))
+            setStroke(dpToPx(2.5f), theme.accentBrightInt)
         }
         layout.background = bg
         layout.elevation = dpToPx(8).toFloat()
 
         val iv = android.widget.ImageView(this).apply {
             setImageResource(R.drawable.ic_bolt_logo)
-            setColorFilter(Color.parseColor("#EF4444"))
+            setColorFilter(theme.accentBrightInt)
             scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
             val iconPad = (sizePx * 0.22f).toInt()
             setPadding(iconPad, iconPad, iconPad, iconPad)
@@ -451,6 +524,7 @@ class FloatingBubbleService : Service() {
      * and automatically minimizes the floating bar back to the single main bubble!
      */
     private fun createSpecialInboxButton(sizePx: Int): View {
+        val theme = com.example.ui.theme.AppThemeManager.current
         val layout = FrameLayout(this).apply {
             val lp = LinearLayout.LayoutParams(sizePx, sizePx).apply {
                 val margin = dpToPx(3)
@@ -461,9 +535,9 @@ class FloatingBubbleService : Service() {
 
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            colors = intArrayOf(Color.parseColor("#181820"), Color.parseColor("#0A0A0F")) // Matte Black
+            colors = intArrayOf(theme.elevatedInt, theme.bgInt)
             orientation = GradientDrawable.Orientation.TL_BR
-            setStroke(dpToPx(2.5f), Color.parseColor("#EF4444")) // Glowing Red Rim
+            setStroke(dpToPx(2.5f), theme.accentBrightInt)
         }
         layout.background = bg
         layout.elevation = dpToPx(8).toFloat()
@@ -499,6 +573,7 @@ class FloatingBubbleService : Service() {
      * and automatically minimizes the floating bar back to the single main bubble!
      */
     private fun createSpecialFacebookButton(sizePx: Int): View {
+        val theme = com.example.ui.theme.AppThemeManager.current
         val layout = FrameLayout(this).apply {
             val lp = LinearLayout.LayoutParams(sizePx, sizePx).apply {
                 val margin = dpToPx(3)
@@ -507,12 +582,11 @@ class FloatingBubbleService : Service() {
             layoutParams = lp
         }
 
-        // Matte Black with Red outer rim and authentic Facebook logo inside
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            colors = intArrayOf(Color.parseColor("#181820"), Color.parseColor("#0A0A0F"))
+            colors = intArrayOf(theme.elevatedInt, theme.bgInt)
             orientation = GradientDrawable.Orientation.TL_BR
-            setStroke(dpToPx(2.5f), Color.parseColor("#EF4444"))
+            setStroke(dpToPx(2.5f), theme.accentBrightInt)
         }
         layout.background = bg
         layout.elevation = dpToPx(8).toFloat()
@@ -548,6 +622,7 @@ class FloatingBubbleService : Service() {
      * Long-clicking it immediately copies a new random First Name and collapses to the main bubble.
      */
     private fun createSpecialNameButton(sizePx: Int): View {
+        val theme = com.example.ui.theme.AppThemeManager.current
         val layout = FrameLayout(this).apply {
             val lp = LinearLayout.LayoutParams(sizePx, sizePx).apply {
                 val margin = dpToPx(3)
@@ -558,9 +633,9 @@ class FloatingBubbleService : Service() {
 
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            colors = intArrayOf(Color.parseColor("#181820"), Color.parseColor("#0A0A0F")) // Matte Black
+            colors = intArrayOf(theme.elevatedInt, theme.bgInt)
             orientation = GradientDrawable.Orientation.TL_BR
-            setStroke(dpToPx(2.5f), Color.parseColor("#EF4444")) // Glowing Red Rim
+            setStroke(dpToPx(2.5f), theme.accentBrightInt)
         }
         layout.background = bg
         layout.elevation = dpToPx(8).toFloat()
@@ -665,6 +740,7 @@ class FloatingBubbleService : Service() {
      * Clicking it opens FloatingVoltxSmsWindow and collapses the floating bar back to the main bubble.
      */
     private fun createSpecialVoltxSmsButton(sizePx: Int): View {
+        val theme = com.example.ui.theme.AppThemeManager.current
         val layout = FrameLayout(this).apply {
             val lp = LinearLayout.LayoutParams(sizePx, sizePx).apply {
                 val margin = dpToPx(3)
@@ -675,9 +751,9 @@ class FloatingBubbleService : Service() {
 
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            colors = intArrayOf(Color.parseColor("#181820"), Color.parseColor("#0A0A0F")) // Matte Black
+            colors = intArrayOf(theme.elevatedInt, theme.bgInt)
             orientation = GradientDrawable.Orientation.TL_BR
-            setStroke(dpToPx(2.5f), Color.parseColor("#EF4444")) // Glowing Red Rim
+            setStroke(dpToPx(2.5f), theme.accentBrightInt)
         }
         layout.background = bg
         layout.elevation = dpToPx(8).toFloat()
@@ -747,6 +823,7 @@ class FloatingBubbleService : Service() {
         sizePx: Int,
         isPasted: Boolean
     ): View {
+        val theme = com.example.ui.theme.AppThemeManager.current
         val layout = FrameLayout(this).apply {
             val lp = LinearLayout.LayoutParams(sizePx, sizePx).apply {
                 val margin = dpToPx(3)
@@ -760,12 +837,12 @@ class FloatingBubbleService : Service() {
             colors = if (isPasted) {
                 intArrayOf(Color.parseColor("#065F46"), Color.parseColor("#064E3B")) // Dark Emerald when pasted
             } else {
-                intArrayOf(Color.parseColor("#181820"), Color.parseColor("#09090D")) // Sleek Matte Black
+                intArrayOf(theme.elevatedInt, theme.bgInt)
             }
             orientation = GradientDrawable.Orientation.TL_BR
             setStroke(
                 dpToPx(2.5f),
-                if (isPasted) Color.parseColor("#10B981") else Color.parseColor("#EF4444")
+                if (isPasted) Color.parseColor("#10B981") else theme.accentBrightInt
             )
         }
         layout.background = bg
@@ -857,6 +934,8 @@ class FloatingBubbleService : Service() {
         _isRunning.value = false
         roundCompleteHandler.removeCallbacksAndMessages(null)
         stateCollectJob?.cancel()
+        themeCollectJob?.cancel()
+        structureCollectJob?.cancel()
         floatingInboxWindow?.dismiss()
         floatingInboxWindow = null
         floatingFacebookWindow?.dismiss()

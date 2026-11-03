@@ -77,9 +77,8 @@ import com.example.data.repository.HotmailStockState
 import com.example.data.repository.VoltxSmsRepository
 import com.example.data.repository.VoltxSmsState
 import com.example.ui.theme.AccentGreen
-import com.example.ui.theme.HackerCrimson
-import com.example.ui.theme.HackerNeonRed
-import com.example.ui.theme.PrimaryLight
+import com.example.ui.theme.AppThemeManager
+import com.example.ui.theme.AppThemePreset
 import com.example.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,6 +91,7 @@ fun SetupScreen(
     BackHandler { onNavigateBack() }
 
     val context = LocalContext.current
+    val activeTheme by AppThemeManager.currentTheme.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.syncSetupWithCurrentConfig()
@@ -148,7 +148,7 @@ fun SetupScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF121216)
+                    containerColor = activeTheme.cardCompose
                 )
             )
         },
@@ -158,32 +158,30 @@ fun SetupScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(Color(0xFF09090B))
+                .background(activeTheme.bgCompose)
                 .verticalScroll(scrollState)
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            // 1. VOLTX SMS API Key (mauthapi) Configuration Card
+            // 1. BDX SMS API Key (mauthapi) Configuration Card
             VoltxSmsSetupCard(
+                theme = activeTheme,
                 voltxState = voltxState,
                 apiKeyInput = voltxApiKeyInput,
                 onApiKeyChange = { voltxApiKeyInput = it },
                 onSaveApiKey = {
                     voltxRepo.updateApiKey(voltxApiKeyInput)
-                    Toast.makeText(context, "✅ VOLTX API Key Saved!", Toast.LENGTH_SHORT).show()
-                },
-                onCycleCopyFormat = {
-                    val next = voltxRepo.cycleCopyFormat()
-                    Toast.makeText(context, "Copy Format: ${next.label}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "✅ BDX SMS API Key Saved!", Toast.LENGTH_SHORT).show()
                 },
                 onClearAllocatedNumbers = {
                     voltxRepo.clearAllocatedNumbers()
-                    Toast.makeText(context, "Cleared allocated VOLTX numbers", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Cleared allocated BDX SMS numbers", Toast.LENGTH_SHORT).show()
                 }
             )
 
             // 2. Hotmail Stock & TXT File Upload Card
             HotmailStockSetupCard(
+                theme = activeTheme,
                 stockState = hotmailStockState,
                 onUploadTxtFile = {
                     openTxtFileLauncher.launch(arrayOf("text/plain", "text/*", "*/*"))
@@ -200,9 +198,9 @@ fun SetupScreen(
             Card(
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF121216)
+                    containerColor = activeTheme.cardCompose
                 ),
-                border = BorderStroke(1.dp, Color(0xFF27272A)),
+                border = BorderStroke(1.dp, activeTheme.cardBorderCompose),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -219,7 +217,7 @@ fun SetupScreen(
                     Text(
                         text = "Define column names in order (e.g. A,B,C or Email,Password,Name,Phone).",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFFA1A1AA)
+                        color = activeTheme.textSecondaryCompose
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -240,7 +238,7 @@ fun SetupScreen(
                         text = "Configured Columns Preview (${parsedPreviewColumns.size}):",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFFA1A1AA)
+                        color = activeTheme.textSecondaryCompose
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -252,8 +250,8 @@ fun SetupScreen(
                         parsedPreviewColumns.forEachIndexed { idx, col ->
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
-                                color = Color(0xFF18181D),
-                                border = BorderStroke(1.dp, Color(0xFF27272A)),
+                                color = activeTheme.elevatedCompose,
+                                border = BorderStroke(1.dp, activeTheme.cardBorderCompose),
                                 modifier = Modifier.padding(vertical = 2.dp)
                             ) {
                                 Row(
@@ -263,7 +261,7 @@ fun SetupScreen(
                                     Text(
                                         text = "${idx + 1}. ",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = HackerNeonRed,
+                                        color = activeTheme.accentBrightCompose,
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
@@ -283,9 +281,9 @@ fun SetupScreen(
             Card(
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF121216)
+                    containerColor = activeTheme.cardCompose
                 ),
-                border = BorderStroke(1.dp, Color(0xFF27272A)),
+                border = BorderStroke(1.dp, activeTheme.cardBorderCompose),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -305,7 +303,7 @@ fun SetupScreen(
                             text = "${buttonSize.toInt()} dp",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = HackerNeonRed
+                            color = activeTheme.accentBrightCompose
                         )
                     }
 
@@ -317,9 +315,9 @@ fun SetupScreen(
                         valueRange = SheetConfig.MIN_BUTTON_SIZE.toFloat()..SheetConfig.MAX_BUTTON_SIZE.toFloat(),
                         steps = 18,
                         colors = SliderDefaults.colors(
-                            thumbColor = HackerNeonRed,
-                            activeTrackColor = HackerNeonRed,
-                            inactiveTrackColor = Color(0xFF27272A)
+                            thumbColor = activeTheme.accentBrightCompose,
+                            activeTrackColor = activeTheme.accentBrightCompose,
+                            inactiveTrackColor = activeTheme.cardBorderCompose
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -339,8 +337,8 @@ fun SetupScreen(
                             modifier = Modifier
                                 .size(sizeDp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF181820))
-                                .border(2.5.dp, HackerNeonRed, CircleShape),
+                                .background(activeTheme.elevatedCompose)
+                                .border(2.5.dp, activeTheme.accentBrightCompose, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -358,9 +356,9 @@ fun SetupScreen(
             Card(
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF121216)
+                    containerColor = activeTheme.cardCompose
                 ),
-                border = BorderStroke(1.dp, Color(0xFF27272A)),
+                border = BorderStroke(1.dp, activeTheme.cardBorderCompose),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -369,7 +367,7 @@ fun SetupScreen(
                         text = stringResource(R.string.save_mode),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFA1A1AA)
+                        color = activeTheme.textSecondaryCompose
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -390,7 +388,7 @@ fun SetupScreen(
                             Text(
                                 text = "Persist sheet data locally in internal private storage.",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFFA1A1AA)
+                                color = activeTheme.textSecondaryCompose
                             )
                         }
 
@@ -399,7 +397,7 @@ fun SetupScreen(
                             onCheckedChange = { viewModel.onSetupLocalSaveModeToggled(it) },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
-                                checkedTrackColor = HackerNeonRed
+                                checkedTrackColor = activeTheme.accentBrightCompose
                             ),
                             modifier = Modifier.testTag("setup_save_mode_switch")
                         )
@@ -418,10 +416,10 @@ fun SetupScreen(
                 },
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF141419),
+                    containerColor = activeTheme.elevatedCompose,
                     contentColor = Color.White
                 ),
-                border = BorderStroke(1.3.dp, HackerNeonRed),
+                border = BorderStroke(1.3.dp, activeTheme.accentBrightCompose),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
@@ -434,7 +432,7 @@ fun SetupScreen(
                     Icon(
                         imageVector = Icons.Default.Save,
                         contentDescription = null,
-                        tint = HackerNeonRed,
+                        tint = activeTheme.accentBrightCompose,
                         modifier = Modifier.size(22.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
@@ -455,7 +453,7 @@ fun SetupScreen(
     if (showPasteTextDialog) {
         AlertDialog(
             onDismissRequest = { showPasteTextDialog = false },
-            containerColor = Color(0xFF141418),
+            containerColor = activeTheme.cardCompose,
             title = {
                 Text(
                     text = "Paste Hotmail Accounts",
@@ -468,7 +466,7 @@ fun SetupScreen(
                     Text(
                         text = "Enter or paste hotmail lines (one per line, e.g. email:password or email|pass):",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFFA1A1AA)
+                        color = activeTheme.textSecondaryCompose
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
@@ -491,7 +489,7 @@ fun SetupScreen(
                         showPasteTextDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = HackerCrimson,
+                        containerColor = activeTheme.accentCompose,
                         contentColor = Color.White
                     )
                 ) {
@@ -500,7 +498,7 @@ fun SetupScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showPasteTextDialog = false }) {
-                    Text("Cancel", color = Color(0xFFA1A1AA))
+                    Text("Cancel", color = activeTheme.textSecondaryCompose)
                 }
             }
         )
@@ -509,11 +507,11 @@ fun SetupScreen(
 
 @Composable
 private fun VoltxSmsSetupCard(
+    theme: AppThemePreset,
     voltxState: VoltxSmsState,
     apiKeyInput: String,
     onApiKeyChange: (String) -> Unit,
     onSaveApiKey: () -> Unit,
-    onCycleCopyFormat: () -> Unit,
     onClearAllocatedNumbers: () -> Unit
 ) {
     val hasKey = voltxState.apiKey.isNotBlank()
@@ -521,9 +519,9 @@ private fun VoltxSmsSetupCard(
     Card(
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF121216)
+            containerColor = theme.cardCompose
         ),
-        border = BorderStroke(1.dp, Color(0xFF27272A)),
+        border = BorderStroke(1.dp, theme.cardBorderCompose),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier
             .fillMaxWidth()
@@ -541,45 +539,45 @@ private fun VoltxSmsSetupCard(
                 ) {
                     Surface(
                         shape = CircleShape,
-                        color = Color(0xFF1F1F26),
-                        border = BorderStroke(1.dp, HackerNeonRed),
+                        color = theme.accentSoftBgCompose,
+                        border = BorderStroke(1.dp, theme.accentBrightCompose),
                         modifier = Modifier.size(34.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.PhoneAndroid,
                                 contentDescription = null,
-                                tint = HackerNeonRed,
+                                tint = theme.accentBrightCompose,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                     }
                     Column {
                         Text(
-                            text = "VOLTX SMS API Setup",
+                            text = "BDX SMS API Setup",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                         Text(
-                            text = "Set your mauthapi key for floating SMS & OTP",
+                            text = "Set your mauthapi key for floating BDX SMS & OTP (+Full auto copy)",
                             style = MaterialTheme.typography.bodySmall,
                             fontSize = 11.5.sp,
-                            color = Color(0xFFA1A1AA)
+                            color = theme.textSecondaryCompose
                         )
                     }
                 }
 
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = if (hasKey) AccentGreen.copy(alpha = 0.14f) else Color(0xFF271518),
-                    border = BorderStroke(1.dp, if (hasKey) AccentGreen else Color(0xFF522228))
+                    color = if (hasKey) AccentGreen.copy(alpha = 0.14f) else theme.accentSoftBgCompose,
+                    border = BorderStroke(1.dp, if (hasKey) AccentGreen else theme.accentCompose)
                 ) {
                     Text(
                         text = if (hasKey) "KEY SAVED" else "NO KEY",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = if (hasKey) AccentGreen else Color(0xFFF87171),
+                        color = if (hasKey) AccentGreen else theme.accentLightTextCompose,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
@@ -590,7 +588,7 @@ private fun VoltxSmsSetupCard(
             OutlinedTextField(
                 value = apiKeyInput,
                 onValueChange = onApiKeyChange,
-                label = { Text("VOLTX API Key (mauthapi)") },
+                label = { Text("BDX SMS API Key (mauthapi)") },
                 placeholder = { Text("Paste mauthapi token here...") },
                 singleLine = true,
                 modifier = Modifier
@@ -609,42 +607,26 @@ private fun VoltxSmsSetupCard(
                     onClick = onSaveApiKey,
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1A1A22),
+                        containerColor = theme.elevatedCompose,
                         contentColor = Color.White
                     ),
-                    border = BorderStroke(1.2.dp, HackerNeonRed),
+                    border = BorderStroke(1.2.dp, theme.accentBrightCompose),
                     modifier = Modifier
-                        .weight(1.3f)
+                        .weight(1f)
                         .height(44.dp)
                         .testTag("save_voltx_key_button")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Key,
                         contentDescription = null,
-                        tint = HackerNeonRed,
+                        tint = theme.accentBrightCompose,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Save API Key",
+                        text = "Save BDX SMS Key",
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.5.sp
-                    )
-                }
-
-                OutlinedButton(
-                    onClick = onCycleCopyFormat,
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, Color(0xFF3F3F46)),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(44.dp)
-                ) {
-                    Text(
-                        text = "Copy: ${voltxState.copyFormat.label}",
-                        color = Color(0xFFE4E4E7),
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 12.sp
                     )
                 }
 
@@ -652,12 +634,12 @@ private fun VoltxSmsSetupCard(
                     OutlinedButton(
                         onClick = onClearAllocatedNumbers,
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, Color(0xFF3F3F46)),
+                        border = BorderStroke(1.dp, theme.cardBorderCompose),
                         modifier = Modifier.height(44.dp)
                     ) {
                         Text(
                             text = "Clear (${voltxState.allocatedNumbers.size})",
-                            color = Color(0xFFA1A1AA),
+                            color = theme.textSecondaryCompose,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 11.5.sp
                         )
@@ -670,6 +652,7 @@ private fun VoltxSmsSetupCard(
 
 @Composable
 private fun HotmailStockSetupCard(
+    theme: AppThemePreset,
     stockState: HotmailStockState,
     onUploadTxtFile: () -> Unit,
     onOpenPasteDialog: () -> Unit,
@@ -679,9 +662,9 @@ private fun HotmailStockSetupCard(
     Card(
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF121216)
+            containerColor = theme.cardCompose
         ),
-        border = BorderStroke(1.dp, Color(0xFF27272A)),
+        border = BorderStroke(1.dp, theme.cardBorderCompose),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier
             .fillMaxWidth()
@@ -699,31 +682,31 @@ private fun HotmailStockSetupCard(
                 ) {
                     Surface(
                         shape = CircleShape,
-                        color = Color(0xFF1F1F26),
-                        border = BorderStroke(1.dp, HackerNeonRed),
+                        color = theme.accentSoftBgCompose,
+                        border = BorderStroke(1.dp, theme.accentBrightCompose),
                         modifier = Modifier.size(34.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.Email,
                                 contentDescription = null,
-                                tint = HackerNeonRed,
+                                tint = theme.accentBrightCompose,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                     }
                     Column {
                         Text(
-                            text = "Hotmail Stock & TXT Upload",
+                            text = "Hotmail Access & TXT Upload",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                         Text(
-                            text = "Unused: ${stockState.availableCount} • Used: ${stockState.usedCount} • Total: ${stockState.totalCount}",
+                            text = "Available: ${stockState.availableCount} • Used: ${stockState.usedCount} • Total: ${stockState.totalCount}",
                             style = MaterialTheme.typography.bodySmall,
                             fontSize = 11.5.sp,
-                            color = Color(0xFFA1A1AA)
+                            color = theme.textSecondaryCompose
                         )
                     }
                 }
@@ -734,7 +717,7 @@ private fun HotmailStockSetupCard(
                     border = BorderStroke(1.dp, AccentGreen)
                 ) {
                     Text(
-                        text = "${stockState.availableCount} Ready",
+                        text = "${stockState.availableCount} Available",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = AccentGreen,
@@ -748,8 +731,8 @@ private fun HotmailStockSetupCard(
             val activeItem = stockState.currentLoadedItem ?: stockState.availableItems.firstOrNull()
             Surface(
                 shape = RoundedCornerShape(10.dp),
-                color = Color(0xFF18181D),
-                border = BorderStroke(1.dp, Color(0xFF27272A)),
+                color = theme.elevatedCompose,
+                border = BorderStroke(1.dp, theme.cardBorderCompose),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -760,7 +743,7 @@ private fun HotmailStockSetupCard(
                         text = "Next In Queue: ",
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFA1A1AA)
+                        color = theme.textSecondaryCompose
                     )
                     Text(
                         text = activeItem?.email ?: if (stockState.totalCount == 0) "Stock empty — Upload .txt file below" else "All used/বাতিল",
@@ -778,10 +761,10 @@ private fun HotmailStockSetupCard(
                 onClick = onUploadTxtFile,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF1F1F26),
+                    containerColor = theme.elevatedCompose,
                     contentColor = Color.White
                 ),
-                border = BorderStroke(1.dp, HackerNeonRed),
+                border = BorderStroke(1.dp, theme.accentBrightCompose),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp)
@@ -794,7 +777,7 @@ private fun HotmailStockSetupCard(
                     Icon(
                         imageVector = Icons.Default.UploadFile,
                         contentDescription = null,
-                        tint = HackerNeonRed,
+                        tint = theme.accentBrightCompose,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -815,7 +798,7 @@ private fun HotmailStockSetupCard(
                 OutlinedButton(
                     onClick = onOpenPasteDialog,
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, Color(0xFF3F3F46)),
+                    border = BorderStroke(1.dp, theme.cardBorderCompose),
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(
@@ -832,7 +815,7 @@ private fun HotmailStockSetupCard(
                     onClick = onClearUsed,
                     shape = RoundedCornerShape(10.dp),
                     enabled = stockState.usedCount > 0,
-                    border = BorderStroke(1.dp, Color(0xFF3F3F46)),
+                    border = BorderStroke(1.dp, theme.cardBorderCompose),
                     modifier = Modifier.weight(1.3f)
                 ) {
                     Icon(
@@ -848,7 +831,7 @@ private fun HotmailStockSetupCard(
                     onClick = onResetAll,
                     shape = RoundedCornerShape(10.dp),
                     enabled = stockState.usedCount > 0,
-                    border = BorderStroke(1.dp, Color(0xFF3F3F46)),
+                    border = BorderStroke(1.dp, theme.cardBorderCompose),
                     modifier = Modifier.weight(1.2f)
                 ) {
                     Icon(

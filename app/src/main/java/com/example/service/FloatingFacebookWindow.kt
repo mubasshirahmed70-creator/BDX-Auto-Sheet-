@@ -226,12 +226,75 @@ class FloatingFacebookWindow(
         }
     }
 
+    private var headerBarRef: LinearLayout? = null
+    private var minimizeBtnRef: View? = null
+    private var closeBtnRef: View? = null
+    private var toolBarRef: LinearLayout? = null
+    private var copyUidBtnRef: View? = null
+    private var copyCookieBtnRef: View? = null
+    private var statusBarRef: LinearLayout? = null
+    private var bottomNavRef: LinearLayout? = null
+
+    fun refreshTheme() {
+        if (!isShowing) return
+        val theme = com.example.ui.theme.AppThemeManager.current
+        mainCardView?.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dpToPx(18).toFloat()
+            setColor(theme.bgInt)
+            setStroke(dpToPx(1.5f), theme.accentBrightInt)
+        }
+        headerBarRef?.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadii = floatArrayOf(
+                dpToPx(18).toFloat(), dpToPx(18).toFloat(),
+                dpToPx(18).toFloat(), dpToPx(18).toFloat(),
+                0f, 0f, 0f, 0f
+            )
+            colors = intArrayOf(theme.headerStartInt, theme.headerEndInt)
+            orientation = GradientDrawable.Orientation.TL_BR
+        }
+        minimizeBtnRef?.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dpToPx(8).toFloat()
+            setColor(theme.elevatedInt)
+            setStroke(dpToPx(1f), theme.accentBrightInt)
+        }
+        closeBtnRef?.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dpToPx(8).toFloat()
+            setColor(Color.parseColor("#EF4444"))
+        }
+        toolBarRef?.setBackgroundColor(theme.cardInt)
+        copyUidBtnRef?.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dpToPx(9).toFloat()
+            setColor(theme.elevatedInt)
+            setStroke(dpToPx(1.2f), theme.accentBrightInt)
+        }
+        copyCookieBtnRef?.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dpToPx(9).toFloat()
+            setColor(theme.elevatedInt)
+            setStroke(dpToPx(1.2f), theme.accentBrightInt)
+        }
+        statusBarRef?.setBackgroundColor(theme.bgInt)
+        bottomNavRef?.setBackgroundColor(theme.cardInt)
+        minimizedBubbleView?.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            colors = intArrayOf(theme.elevatedInt, theme.bgInt)
+            orientation = GradientDrawable.Orientation.TL_BR
+            setStroke(dpToPx(2.5f), theme.accentBrightInt)
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
     private fun buildWindowView(
         params: WindowManager.LayoutParams,
         normalWidth: Int,
         normalHeight: Int
     ): FrameLayout {
+        val theme = com.example.ui.theme.AppThemeManager.current
         val container = FrameLayout(context).apply {
             layoutParams = ViewGroup.LayoutParams(normalWidth, normalHeight)
             setOnTouchListener { _, event ->
@@ -242,17 +305,17 @@ class FloatingFacebookWindow(
             }
         }
 
-        // Expanded Main Card (Matte Black + Crimson Red Accent Border)
+        // Expanded Main Card (Bento Glass Surface + Electric Border)
         val mainCard = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             val cardBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(14).toFloat()
-                setColor(Color.parseColor("#0D0D11"))
-                setStroke(dpToPx(1.5f), Color.parseColor("#DC2626"))
+                cornerRadius = dpToPx(18).toFloat()
+                setColor(theme.bgInt)
+                setStroke(dpToPx(1.5f), theme.accentBrightInt)
             }
             background = cardBg
-            elevation = dpToPx(8).toFloat()
+            elevation = dpToPx(10).toFloat()
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
@@ -260,43 +323,50 @@ class FloatingFacebookWindow(
         }
         mainCardView = mainCard
 
-        // 1. Sleek Top Header Bar (Draggable)
+        // 1. Sleek Bento Glass Capsule Top Header Bar (Draggable)
         val headerBar = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             val headerBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadii = floatArrayOf(
-                    dpToPx(14).toFloat(), dpToPx(14).toFloat(),
-                    dpToPx(14).toFloat(), dpToPx(14).toFloat(),
+                    dpToPx(18).toFloat(), dpToPx(18).toFloat(),
+                    dpToPx(18).toFloat(), dpToPx(18).toFloat(),
                     0f, 0f, 0f, 0f
                 )
-                colors = intArrayOf(Color.parseColor("#181820"), Color.parseColor("#101016"))
+                colors = intArrayOf(theme.headerStartInt, theme.headerEndInt)
                 orientation = GradientDrawable.Orientation.TL_BR
             }
             background = headerBg
-            setPadding(dpToPx(10), dpToPx(7), dpToPx(10), dpToPx(7))
+            setPadding(dpToPx(10), dpToPx(8), dpToPx(10), dpToPx(8))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
+        headerBarRef = headerBar
 
-        val dragHandle = TextView(context).apply {
-            text = "::: "
-            setTextColor(Color.parseColor("#A1A1AA"))
-            textSize = 14f
-            setTypeface(null, Typeface.BOLD)
-            setPadding(0, 0, dpToPx(4), 0)
-        }
-
-        val fbLogoIv = android.widget.ImageView(context).apply {
-            setImageResource(R.drawable.ic_facebook_logo)
-            val logoSize = dpToPx(18)
-            val lp = LinearLayout.LayoutParams(logoSize, logoSize).apply {
-                marginEnd = dpToPx(6)
+        val fbLogoBox = FrameLayout(context).apply {
+            val boxSize = dpToPx(24)
+            layoutParams = LinearLayout.LayoutParams(boxSize, boxSize).apply {
+                marginEnd = dpToPx(8)
             }
-            layoutParams = lp
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(7).toFloat()
+                setColor(theme.accentSoftBgInt)
+                setStroke(dpToPx(1f), theme.accentBrightInt)
+            }
+            val iv = android.widget.ImageView(context).apply {
+                setImageResource(R.drawable.ic_facebook_logo)
+                val pad = dpToPx(3)
+                setPadding(pad, pad, pad, pad)
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            }
+            addView(iv)
         }
 
         val titleView = TextView(context).apply {
@@ -307,56 +377,32 @@ class FloatingFacebookWindow(
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        // Minimize Button (—)
-        val minimizeBtn = TextView(context).apply {
-            text = "—"
-            setTextColor(Color.WHITE)
-            textSize = 12f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            val s = dpToPx(24)
-            layoutParams = LinearLayout.LayoutParams(s, s).apply {
-                marginEnd = dpToPx(5)
-            }
-            val bg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#1E1E28"))
-                setStroke(dpToPx(1f), Color.parseColor("#EF4444"))
-            }
-            background = bg
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                triggerHapticFeedback()
-                setMinimizedState(true)
-            }
+        // Minimize Button (Vector Icon)
+        val minimizeBtn = createHeaderIconButton(
+            iconRes = R.drawable.ic_window_minimize,
+            bgColor = theme.elevatedInt,
+            borderColor = theme.accentBrightInt,
+            marginEndDp = 6
+        ) {
+            triggerHapticFeedback()
+            setMinimizedState(true)
         }
+        minimizeBtnRef = minimizeBtn
 
-        // Close Button (✕)
-        val closeBtn = TextView(context).apply {
-            text = "✕"
-            setTextColor(Color.WHITE)
-            textSize = 12f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            val s = dpToPx(24)
-            layoutParams = LinearLayout.LayoutParams(s, s)
-            val bg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#DC2626"))
-            }
-            background = bg
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                clearAllWebDataAndCookies()
-                Toast.makeText(context, "🧹 All Facebook data & cookies cleared!", Toast.LENGTH_SHORT).show()
-                dismiss()
-            }
+        // Close Button (Vector Icon)
+        val closeBtn = createHeaderIconButton(
+            iconRes = R.drawable.ic_window_close,
+            bgColor = Color.parseColor("#EF4444"),
+            borderColor = Color.parseColor("#F87171"),
+            marginEndDp = 0
+        ) {
+            clearAllWebDataAndCookies()
+            Toast.makeText(context, "All Facebook data & cookies cleared!", Toast.LENGTH_SHORT).show()
+            dismiss()
         }
+        closeBtnRef = closeBtn
 
-        headerBar.addView(dragHandle)
-        headerBar.addView(fbLogoIv)
+        headerBar.addView(fbLogoBox)
         headerBar.addView(titleView)
         headerBar.addView(minimizeBtn)
         headerBar.addView(closeBtn)
@@ -364,65 +410,42 @@ class FloatingFacebookWindow(
         setupDragListener(headerBar, params)
         mainCard.addView(headerBar)
 
-        // 2. Action Toolbar: COPY UID and COPY COOKIE (Matte Black + Red Accent Border)
+        // 2. Action Toolbar: COPY UID and COPY COOKIE (Bento Vector Pills)
         val toolBar = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(Color.parseColor("#121218"))
+            setBackgroundColor(theme.cardInt)
             setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
+        toolBarRef = toolBar
 
-        val copyUidBtn = TextView(context).apply {
-            text = "📋 COPY UID"
-            setTextColor(Color.WHITE)
-            textSize = 11.5f
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            val btnBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(7).toFloat()
-                setColor(Color.parseColor("#181820"))
-                setStroke(dpToPx(1.2f), Color.parseColor("#EF4444"))
-            }
-            background = btnBg
-            setPadding(dpToPx(10), dpToPx(6), dpToPx(10), dpToPx(6))
-            val lp = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                marginEnd = dpToPx(6)
-            }
-            layoutParams = lp
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                FloatingWindowAnimator.animatePopPulse(this)
-                copyFacebookUserId()
-            }
+        val copyUidBtn = createToolbarActionPill(
+            iconRes = R.drawable.ic_person_logo,
+            label = "COPY UID",
+            iconTint = theme.accentBrightInt,
+            bgColor = theme.elevatedInt,
+            borderColor = theme.accentBrightInt,
+            marginEndDp = 6
+        ) {
+            copyFacebookUserId()
         }
+        copyUidBtnRef = copyUidBtn
 
-        val copyCookieBtn = TextView(context).apply {
-            text = "🍪 COPY COOKIE"
-            setTextColor(Color.WHITE)
-            textSize = 11.5f
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            val btnBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(7).toFloat()
-                setColor(Color.parseColor("#181820"))
-                setStroke(dpToPx(1.2f), Color.parseColor("#EF4444"))
-            }
-            background = btnBg
-            setPadding(dpToPx(10), dpToPx(6), dpToPx(10), dpToPx(6))
-            val lp = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            layoutParams = lp
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                FloatingWindowAnimator.animatePopPulse(this)
-                copyFacebookCookies()
-            }
+        val copyCookieBtn = createToolbarActionPill(
+            iconRes = R.drawable.ic_action_cookie,
+            label = "COPY COOKIE",
+            iconTint = Color.parseColor("#FBBF24"),
+            bgColor = theme.elevatedInt,
+            borderColor = theme.accentBrightInt,
+            marginEndDp = 0
+        ) {
+            copyFacebookCookies()
         }
+        copyCookieBtnRef = copyCookieBtn
 
         toolBar.addView(copyUidBtn)
         toolBar.addView(copyCookieBtn)
@@ -432,17 +455,18 @@ class FloatingFacebookWindow(
         val statusBar = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(Color.parseColor("#16161D"))
+            setBackgroundColor(theme.bgInt)
             setPadding(dpToPx(10), dpToPx(3), dpToPx(10), dpToPx(3))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
+        statusBarRef = statusBar
 
         urlStatusText = TextView(context).apply {
             text = "Loading Facebook..."
-            setTextColor(Color.parseColor("#A1A1AA"))
+            setTextColor(theme.textSecondaryInt)
             textSize = 10f
             maxLines = 1
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -484,29 +508,30 @@ class FloatingFacebookWindow(
         webView = wv
         mainCard.addView(wv)
 
-        // 5. Bottom Navigation Bar: Back, Forward, Home, Reload
+        // 5. Bottom Navigation Bar: Back, Forward, Home, Reload (Crisp Vector Icons)
         val bottomNav = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(Color.parseColor("#121218"))
-            setPadding(dpToPx(6), dpToPx(4), dpToPx(6), dpToPx(4))
+            setBackgroundColor(theme.cardInt)
+            setPadding(dpToPx(6), dpToPx(5), dpToPx(6), dpToPx(5))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
+        bottomNavRef = bottomNav
 
-        val backBtn = createNavIconButton("◀") {
+        val backBtn = createNavVectorButton(R.drawable.ic_nav_back, null) {
             if (wv.canGoBack()) wv.goBack()
             else Toast.makeText(context, "Cannot go back", Toast.LENGTH_SHORT).show()
         }
-        val forwardBtn = createNavIconButton("▶") {
+        val forwardBtn = createNavVectorButton(R.drawable.ic_nav_forward, null) {
             if (wv.canGoForward()) wv.goForward()
         }
-        val homeBtn = createNavIconButton("🏠 Home") {
+        val homeBtn = createNavVectorButton(R.drawable.ic_nav_home, "Home") {
             wv.loadUrl(FACEBOOK_MOBILE_URL)
         }
-        val reloadBtn = createNavIconButton("🔄") {
+        val reloadBtn = createNavVectorButton(R.drawable.ic_action_refresh, null) {
             wv.reload()
         }
 
@@ -525,7 +550,7 @@ class FloatingFacebookWindow(
             rootViewProvider = { rootContainer },
             params = params,
             iconResId = R.drawable.ic_facebook_logo,
-            accentColorHex = "#EF4444",
+            accentColorHex = null,
             tintIconWhite = false,
             onTapMaximize = {
                 triggerHapticFeedback()
@@ -785,18 +810,115 @@ class FloatingFacebookWindow(
         }
     }
 
-    private fun createNavIconButton(label: String, onClick: () -> Unit): TextView {
-        return TextView(context).apply {
-            text = label
-            setTextColor(Color.WHITE)
-            textSize = 11.5f
-            setTypeface(null, Typeface.BOLD)
+    private fun createHeaderIconButton(
+        iconRes: Int,
+        bgColor: Int,
+        borderColor: Int,
+        marginEndDp: Int,
+        onClick: (View) -> Unit
+    ): FrameLayout {
+        val size = dpToPx(26)
+        return FrameLayout(context).apply {
+            layoutParams = LinearLayout.LayoutParams(size, size).apply {
+                if (marginEndDp > 0) marginEnd = dpToPx(marginEndDp)
+            }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(8).toFloat()
+                setColor(bgColor)
+                setStroke(dpToPx(1f), borderColor)
+            }
+            val iv = android.widget.ImageView(context).apply {
+                setImageResource(iconRes)
+                setColorFilter(Color.WHITE)
+                val pad = dpToPx(5.5f)
+                setPadding(pad, pad, pad, pad)
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            }
+            addView(iv)
+            FloatingWindowAnimator.applyLiquidTouch(this)
+            setOnClickListener { onClick(this) }
+        }
+    }
+
+    private fun createToolbarActionPill(
+        iconRes: Int,
+        label: String,
+        iconTint: Int,
+        bgColor: Int,
+        borderColor: Int,
+        marginEndDp: Int,
+        onClick: () -> Unit
+    ): LinearLayout {
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(dpToPx(10), dpToPx(5), dpToPx(10), dpToPx(5))
-            val lp = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            layoutParams = lp
-            val ripple = createRippleDrawable(Color.parseColor("#3A3B3C"), dpToPx(6))
-            background = ripple
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(32), 1f).apply {
+                if (marginEndDp > 0) marginEnd = dpToPx(marginEndDp)
+            }
+            setPadding(dpToPx(10), 0, dpToPx(10), 0)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(9).toFloat()
+                setColor(bgColor)
+                setStroke(dpToPx(1.2f), borderColor)
+            }
+            val iv = android.widget.ImageView(context).apply {
+                setImageResource(iconRes)
+                setColorFilter(iconTint)
+                val s = dpToPx(14)
+                layoutParams = LinearLayout.LayoutParams(s, s).apply {
+                    marginEnd = dpToPx(6)
+                }
+            }
+            val tv = TextView(context).apply {
+                text = label
+                setTextColor(Color.WHITE)
+                textSize = 11f
+                typeface = Typeface.DEFAULT_BOLD
+            }
+            addView(iv)
+            addView(tv)
+            FloatingWindowAnimator.applyLiquidTouch(this)
+            setOnClickListener {
+                FloatingWindowAnimator.animatePopPulse(this)
+                onClick()
+            }
+        }
+    }
+
+    private fun createNavVectorButton(
+        iconRes: Int,
+        label: String?,
+        onClick: () -> Unit
+    ): LinearLayout {
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(8), dpToPx(5), dpToPx(8), dpToPx(5))
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(30), 1f)
+            background = createRippleDrawable(Color.parseColor("#3A3B3C"), dpToPx(7))
+            val iv = android.widget.ImageView(context).apply {
+                setImageResource(iconRes)
+                setColorFilter(Color.WHITE)
+                val s = dpToPx(15)
+                layoutParams = LinearLayout.LayoutParams(s, s).apply {
+                    if (label != null) marginEnd = dpToPx(4)
+                }
+            }
+            addView(iv)
+            if (label != null) {
+                val tv = TextView(context).apply {
+                    text = label
+                    setTextColor(Color.WHITE)
+                    textSize = 11f
+                    typeface = Typeface.DEFAULT_BOLD
+                }
+                addView(tv)
+            }
             FloatingWindowAnimator.applyLiquidTouch(this)
             setOnClickListener { onClick() }
         }

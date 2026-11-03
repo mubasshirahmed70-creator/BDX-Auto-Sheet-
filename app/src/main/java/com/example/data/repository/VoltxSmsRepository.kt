@@ -18,7 +18,7 @@ enum class NumberCopyFormat(val label: String) {
 data class VoltxSmsState(
     val apiKey: String = "",
     val selectedRange: String = "",
-    val copyFormat: NumberCopyFormat = NumberCopyFormat.NO_PLUS,
+    val copyFormat: NumberCopyFormat = NumberCopyFormat.FULL_PLUS,
     val allocatedNumbers: List<VoltxAllocatedNumber> = emptyList(),
     val latestOtps: List<VoltxOtpItem> = emptyList()
 )
@@ -33,17 +33,11 @@ class VoltxSmsRepository private constructor(context: Context) {
     private fun loadInitialState(): VoltxSmsState {
         val key = prefs.getString(KEY_API_TOKEN, "") ?: ""
         val range = prefs.getString(KEY_SELECTED_RANGE, "") ?: ""
-        val formatName = prefs.getString(KEY_COPY_FORMAT, NumberCopyFormat.NO_PLUS.name) ?: NumberCopyFormat.NO_PLUS.name
-        val format = try {
-            NumberCopyFormat.valueOf(formatName)
-        } catch (_: Exception) {
-            NumberCopyFormat.NO_PLUS
-        }
         val numbers = parseSavedNumbers(prefs.getString(KEY_ALLOCATED_NUMBERS, null))
         return VoltxSmsState(
             apiKey = key,
             selectedRange = range,
-            copyFormat = format,
+            copyFormat = NumberCopyFormat.FULL_PLUS,
             allocatedNumbers = numbers
         )
     }
@@ -61,22 +55,14 @@ class VoltxSmsRepository private constructor(context: Context) {
     }
 
     fun cycleCopyFormat(): NumberCopyFormat {
-        val next = when (_state.value.copyFormat) {
-            NumberCopyFormat.NO_PLUS -> NumberCopyFormat.FULL_PLUS
-            NumberCopyFormat.FULL_PLUS -> NumberCopyFormat.NATIONAL
-            NumberCopyFormat.NATIONAL -> NumberCopyFormat.NO_PLUS
-        }
-        prefs.edit().putString(KEY_COPY_FORMAT, next.name).apply()
-        _state.value = _state.value.copy(copyFormat = next)
-        return next
+        // Fixed to +Full permanently as requested
+        _state.value = _state.value.copy(copyFormat = NumberCopyFormat.FULL_PLUS)
+        return NumberCopyFormat.FULL_PLUS
     }
 
     fun formatNumberForCopy(num: VoltxAllocatedNumber): String {
-        return when (_state.value.copyFormat) {
-            NumberCopyFormat.NO_PLUS -> num.noPlusNumber.ifBlank { num.fullNumber.removePrefix("+") }
-            NumberCopyFormat.FULL_PLUS -> if (num.fullNumber.startsWith("+")) num.fullNumber else "+${num.noPlusNumber}"
-            NumberCopyFormat.NATIONAL -> num.nationalNumber.ifBlank { num.noPlusNumber }
-        }
+        val cleanNoPlus = num.noPlusNumber.ifBlank { num.fullNumber.removePrefix("+") }
+        return if (num.fullNumber.startsWith("+")) num.fullNumber else "+$cleanNoPlus"
     }
 
     fun addAllocatedNumber(number: VoltxAllocatedNumber) {

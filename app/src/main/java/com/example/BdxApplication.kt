@@ -5,11 +5,13 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import com.example.data.repository.SheetRepository
+import com.example.ui.theme.AppThemeManager
 
 class BdxApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AppThemeManager.init(this)
         // Initialize SheetRepository early
         SheetRepository.getInstance(this)
         createNotificationChannel()

@@ -3,10 +3,16 @@ package com.example.ui.screens
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,44 +30,42 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.BubbleChart
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.TableChart
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.model.SheetState
 import com.example.data.repository.HotmailStockState
-import com.example.data.repository.VoltxSmsRepository
 import com.example.ui.theme.AccentGreen
-import com.example.ui.theme.HackerCrimson
-import com.example.ui.theme.HackerNeonRed
+import com.example.ui.theme.AppThemeManager
+import com.example.ui.theme.AppThemePreset
 import com.example.viewmodel.MainViewModel
 
 @Composable
@@ -75,360 +79,675 @@ fun MainScreen(
     val sheetState by viewModel.sheetState.collectAsState()
     val hotmailStockState by viewModel.hotmailStockState.collectAsState()
     val isServiceRunning by viewModel.isServiceRunning.collectAsState()
-
-    val voltxRepo = remember { VoltxSmsRepository.getInstance(context) }
-    val voltxState by voltxRepo.state.collectAsState()
+    val activeTheme by AppThemeManager.currentTheme.collectAsState()
 
     val scrollState = rememberScrollState()
+
+    val onToggleBubble = {
+        if (isServiceRunning) {
+            viewModel.stopFloatingBubble(context)
+        } else {
+            viewModel.checkAndStartFloatingBubble(context)
+        }
+    }
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF09090B))
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        activeTheme.bgCompose,
+                        activeTheme.headerStartCompose.copy(alpha = 0.65f),
+                        activeTheme.bgCompose
+                    )
+                )
+            )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scrollState)
-                .padding(horizontal = 20.dp, vertical = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 18.dp, vertical = 18.dp)
         ) {
-            // App Header (Sleek Matte Black with Red Accent)
-            AppHeader()
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Live Status & Metrics Card
-            StatusMetricsCard(
-                sheetState = sheetState,
-                hotmailStockState = hotmailStockState,
-                hasVoltxKey = voltxState.apiKey.isNotBlank(),
-                isServiceRunning = isServiceRunning
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Primary Action Buttons (3 Clean Buttons: Single Toggle Start/Stop Bubble, Open Sheet, Setup/Configuration)
-            ActionButtonsSection(
+            // 1. Compact Top HUD Header Bar
+            BentoTopHudHeader(
+                theme = activeTheme,
                 isServiceRunning = isServiceRunning,
-                onToggleBubble = {
-                    if (isServiceRunning) {
-                        viewModel.stopFloatingBubble(context)
-                    } else {
-                        viewModel.checkAndStartFloatingBubble(context)
+                onJoinTelegram = {
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/bdxtechnical")).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Cannot open Telegram: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
-                },
-                onOpenSheet = onNavigateToSheet,
-                onOpenSetup = onNavigateToSetup
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Concise Guide Card
-            HowToUseAppCard(sheetState = sheetState)
-
-            // Extra space so floating button never covers bottom content
-            Spacer(modifier = Modifier.height(76.dp))
-        }
-
-        // Floating "Join Us" Telegram Channel Button
-        ExtendedFloatingActionButton(
-            onClick = {
-                try {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/bdxtechnical")).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    }
-                    context.startActivity(intent)
-                } catch (e: Exception) {
-                    Toast.makeText(context, "Cannot open Telegram: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
-            },
-            containerColor = Color(0xFF18181D),
-            contentColor = Color.White,
-            shape = RoundedCornerShape(24.dp),
-            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 18.dp)
-                .border(1.dp, HackerNeonRed, RoundedCornerShape(24.dp))
-                .testTag("join_us_telegram_button")
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.Send,
-                contentDescription = "Join Us Telegram Channel",
-                tint = HackerNeonRed,
-                modifier = Modifier.size(18.dp)
             )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "Join Us",
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.5.sp,
-                letterSpacing = 0.3.sp
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // 2. Center Power Hero Hub (Asymmetric Bento Hero Card with Glowing Power Ring)
+            BentoPowerHeroCard(
+                theme = activeTheme,
+                sheetState = sheetState,
+                isServiceRunning = isServiceRunning,
+                onToggleBubble = onToggleBubble
             )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 3. Hotmail Access Status Card (Non-clickable display of Available & Used Hotmails)
+            HotmailAccessStatusBentoCard(
+                theme = activeTheme,
+                hotmailStockState = hotmailStockState
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 4. Side-by-Side Bento Action Modules (Live Sheet & Setup/Config)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                BentoModuleTile(
+                    theme = activeTheme,
+                    icon = Icons.Default.TableChart,
+                    badgeText = "ROW ${sheetState.currentRow}",
+                    badgeAccent = activeTheme.accentBrightCompose,
+                    title = "Live Sheet",
+                    subtitle = "${sheetState.cells.size} cells • ${sheetState.config.columns.joinToString(",")}",
+                    footerActionText = "Open Sheet →",
+                    testTag = "open_sheet_button",
+                    onClick = onNavigateToSheet,
+                    modifier = Modifier.weight(1f)
+                )
+
+                BentoModuleTile(
+                    theme = activeTheme,
+                    icon = Icons.Default.Settings,
+                    badgeText = "${sheetState.config.buttonSizeDp}DP DOCK",
+                    badgeAccent = activeTheme.accentLightTextCompose,
+                    title = "Setup & Config",
+                    subtitle = "BDX SMS • Hotmail • Cols",
+                    footerActionText = "Configure →",
+                    testTag = "setup_config_button",
+                    onClick = onNavigateToSetup,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 5. Concise Quick Guide Card
+            HowToUseAppCard(
+                theme = activeTheme,
+                sheetState = sheetState
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
 
 @Composable
-private fun AppHeader() {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Surface(
-            shape = RoundedCornerShape(18.dp),
-            shadowElevation = 8.dp,
-            border = BorderStroke(1.5.dp, HackerNeonRed),
-            color = Color(0xFF121216),
-            modifier = Modifier.size(76.dp)
-        ) {
-            Image(
-                painter = painterResource(R.drawable.app_logo),
-                contentDescription = "BDX Auto Sheet Logo",
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(18.dp))
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = "BDX AUTO SHEET",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Black,
-            letterSpacing = 1.2.sp,
-            color = Color.White
-        )
-
-        Spacer(modifier = Modifier.height(2.dp))
-
-        Text(
-            text = "AUTOMATION & FLOATING TOOLS",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp,
-            color = Color(0xFFA1A1AA)
-        )
-    }
-}
-
-@Composable
-private fun StatusMetricsCard(
-    sheetState: SheetState,
-    hotmailStockState: HotmailStockState,
-    hasVoltxKey: Boolean,
-    isServiceRunning: Boolean
+private fun BentoTopHudHeader(
+    theme: AppThemePreset,
+    isServiceRunning: Boolean,
+    onJoinTelegram: () -> Unit
 ) {
-    Card(
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF121216)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = theme.cardCompose,
+                border = BorderStroke(1.5.dp, theme.accentBrightCompose),
+                shadowElevation = 6.dp,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.app_logo),
+                    contentDescription = "BDX Auto Sheet Logo",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(14.dp))
+                )
+            }
+
+            Column {
+                Text(
+                    text = "BDX AUTO SHEET",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.1.sp,
+                    color = Color.White
+                )
+                Text(
+                    text = "PRO AUTOMATION SUITE",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.8.sp,
+                    color = theme.accentLightTextCompose
+                )
+            }
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Live Status Capsule
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = if (isServiceRunning) AccentGreen.copy(alpha = 0.15f) else theme.cardCompose,
+                border = BorderStroke(
+                    1.dp,
+                    if (isServiceRunning) AccentGreen else theme.cardBorderCompose
+                )
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(if (isServiceRunning) AccentGreen else Color(0xFF71717A))
+                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = if (isServiceRunning) "LIVE" else "STANDBY",
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (isServiceRunning) AccentGreen else theme.textSecondaryCompose
+                    )
+                }
+            }
+
+            // Compact Telegram Pill Button
+            Surface(
+                shape = CircleShape,
+                color = theme.elevatedCompose,
+                border = BorderStroke(1.dp, theme.accentBrightCompose),
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .clickable { onJoinTelegram() }
+                    .testTag("join_us_telegram_button")
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = "Join Us Telegram",
+                        tint = theme.accentBrightCompose,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BentoPowerHeroCard(
+    theme: AppThemePreset,
+    sheetState: SheetState,
+    isServiceRunning: Boolean,
+    onToggleBubble: () -> Unit
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "PowerPulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = if (isServiceRunning) 1.07f else 1.02f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
         ),
-        border = BorderStroke(1.dp, Color(0xFF27272A)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        label = "PowerRingScale"
+    )
+
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        border = BorderStroke(
+            width = 1.4.dp,
+            brush = Brush.linearGradient(
+                colors = listOf(
+                    theme.accentBrightCompose,
+                    theme.cardBorderCompose,
+                    theme.accentCompose
+                )
+            )
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            theme.headerStartCompose,
+                            theme.cardCompose,
+                            theme.elevatedCompose
+                        )
+                    )
+                )
+                .padding(20.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "SYSTEM STATUS",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.8.sp,
-                    color = Color(0xFFA1A1AA)
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = theme.accentSoftBgCompose,
+                        border = BorderStroke(0.8.dp, theme.accentBrightCompose.copy(alpha = 0.6f))
+                    ) {
+                        Text(
+                            text = if (isServiceRunning) "⚡ GLASS DOCK OVERLAY ACTIVE" else "⚡ FLOATING COMMAND ENGINE",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.6.sp,
+                            color = theme.accentLightTextCompose,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
 
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = if (isServiceRunning) "Overlay Running" else "Launch Overlay",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = if (isServiceRunning) {
+                            "Glass Dock is active on screen. Tap power ring to stop."
+                        } else {
+                            "Tap the power ring to launch the floating Glass Dock."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = theme.textSecondaryCompose,
+                        lineHeight = 16.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = theme.bgCompose.copy(alpha = 0.7f),
+                            border = BorderStroke(1.dp, theme.cardBorderCompose)
+                        ) {
+                            Text(
+                                text = "Round #${sheetState.currentRow}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = theme.accentLightTextCompose,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = theme.bgCompose.copy(alpha = 0.7f),
+                            border = BorderStroke(1.dp, theme.cardBorderCompose)
+                        ) {
+                            Text(
+                                text = "${sheetState.config.columns.size} Columns",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                // Glowing Power Ring Button
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(88.dp)
+                        .scale(pulseScale)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    if (isServiceRunning) AccentGreen.copy(alpha = 0.35f)
+                                    else theme.accentBrightCompose.copy(alpha = 0.32f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                        .clickable { onToggleBubble() }
+                        .testTag("start_floating_bubble_button")
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = if (isServiceRunning) Color(0xFF063E2E) else theme.elevatedCompose,
+                        border = BorderStroke(
+                            width = 2.5.dp,
+                            color = if (isServiceRunning) AccentGreen else theme.accentBrightCompose
+                        ),
+                        shadowElevation = 10.dp,
+                        modifier = Modifier.size(70.dp)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Icon(
+                                imageVector = if (isServiceRunning) Icons.Default.Stop else Icons.Default.PowerSettingsNew,
+                                contentDescription = if (isServiceRunning) "Stop Floating Bubble" else "Start Floating Bubble",
+                                tint = if (isServiceRunning) AccentGreen else theme.accentBrightCompose,
+                                modifier = Modifier.size(26.dp)
+                            )
+                            Text(
+                                text = if (isServiceRunning) "STOP" else "START",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.6.sp,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Non-clickable Bento Status Card for Hotmail Access.
+ * Displays Available and Used counts clearly without triggering navigation on tap.
+ */
+@Composable
+private fun HotmailAccessStatusBentoCard(
+    theme: AppThemePreset,
+    hotmailStockState: HotmailStockState
+) {
+    val total = (hotmailStockState.availableCount + hotmailStockState.usedCount).coerceAtLeast(1)
+    val ratio = (hotmailStockState.availableCount.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = theme.cardCompose),
+        border = BorderStroke(1.dp, theme.cardBorderCompose),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("hotmail_access_status_card")
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            if (isServiceRunning) AccentGreen.copy(alpha = 0.14f)
-                            else Color(0xFF18181D)
-                        )
-                        .border(
-                            1.dp,
-                            if (isServiceRunning) AccentGreen else Color(0xFF27272A),
-                            RoundedCornerShape(12.dp)
-                        )
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(if (isServiceRunning) AccentGreen else Color(0xFF71717A))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = theme.accentSoftBgCompose,
+                        border = BorderStroke(1.dp, theme.accentBrightCompose.copy(alpha = 0.65f)),
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Email,
+                                contentDescription = "Hotmail Access",
+                                tint = theme.accentBrightCompose,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    Column {
+                        Text(
+                            text = "Hotmail Access",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Live Account Stock Overview",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontSize = 11.sp,
+                            color = theme.textSecondaryCompose
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = theme.elevatedCompose,
+                    border = BorderStroke(
+                        0.9.dp,
+                        if (hotmailStockState.availableCount > 0) AccentGreen else theme.cardBorderCompose
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                ) {
                     Text(
-                        text = if (isServiceRunning) "ACTIVE" else "STANDBY",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isServiceRunning) AccentGreen else Color(0xFFA1A1AA)
+                        text = "${hotmailStockState.availableCount} AVAILABLE",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (hotmailStockState.availableCount > 0) AccentGreen else theme.textSecondaryCompose,
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(14.dp))
 
+            // Side-by-side Available & Used Metric Pills
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                MetricItem(
-                    label = "Active Round",
-                    value = "Row ${sheetState.currentRow}",
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = theme.elevatedCompose,
+                    border = BorderStroke(1.dp, theme.cardBorderCompose),
                     modifier = Modifier.weight(1f)
-                )
-                MetricItem(
-                    label = "Mail Stock",
-                    value = "${hotmailStockState.availableCount} Ready",
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            text = "Available",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontSize = 11.sp,
+                            color = theme.textSecondaryCompose
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "${hotmailStockState.availableCount}",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Black,
+                            color = if (hotmailStockState.availableCount > 0) AccentGreen else Color.White
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = theme.elevatedCompose,
+                    border = BorderStroke(1.dp, theme.cardBorderCompose),
                     modifier = Modifier.weight(1f)
-                )
-                MetricItem(
-                    label = "VOLTX API",
-                    value = if (hasVoltxKey) "Ready" else "Not Set",
-                    valueColor = if (hasVoltxKey) AccentGreen else Color(0xFFA1A1AA),
-                    modifier = Modifier.weight(0.9f)
-                )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            text = "Used",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontSize = 11.sp,
+                            color = theme.textSecondaryCompose
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "${hotmailStockState.usedCount}",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Black,
+                            color = theme.accentLightTextCompose
+                        )
+                    }
+                }
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            LinearProgressIndicator(
+                progress = { ratio },
+                color = theme.accentBrightCompose,
+                trackColor = theme.elevatedCompose,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp))
+            )
         }
     }
 }
 
 @Composable
-private fun MetricItem(
-    label: String,
-    value: String,
-    valueColor: Color = Color.White,
+private fun BentoModuleTile(
+    theme: AppThemePreset,
+    icon: ImageVector,
+    badgeText: String,
+    badgeAccent: Color,
+    title: String,
+    subtitle: String,
+    footerActionText: String,
+    testTag: String,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFFA1A1AA)
-        )
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = valueColor
-        )
-    }
-}
-
-@Composable
-private fun ActionButtonsSection(
-    isServiceRunning: Boolean,
-    onToggleBubble: () -> Unit,
-    onOpenSheet: () -> Unit,
-    onOpenSetup: () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        // 1. SINGLE TOGGLE BUTTON: START FLOATING BUBBLE <-> STOP FLOATING BUBBLE
-        LargeActionButton(
-            text = if (isServiceRunning) "STOP FLOATING BUBBLE" else stringResource(R.string.start_floating_bubble),
-            icon = if (isServiceRunning) Icons.Default.Stop else Icons.Default.BubbleChart,
-            containerColor = if (isServiceRunning) Color(0xFF1F0E12) else Color(0xFF141419),
-            contentColor = Color.White,
-            iconTint = HackerNeonRed,
-            borderColor = HackerNeonRed,
-            testTag = "start_floating_bubble_button",
-            onClick = onToggleBubble
-        )
-
-        // 2. OPEN SHEET BUTTON
-        LargeActionButton(
-            text = stringResource(R.string.open_sheet),
-            icon = Icons.Default.TableChart,
-            containerColor = Color(0xFF141419),
-            contentColor = Color.White,
-            iconTint = HackerNeonRed,
-            borderColor = Color(0xFFDC2626),
-            testTag = "open_sheet_button",
-            onClick = onOpenSheet
-        )
-
-        // 3. SETUP / CONFIGURATION BUTTON (Includes VOLTX API Key & Hotmail TXT Upload)
-        LargeActionButton(
-            text = stringResource(R.string.setup_configuration),
-            icon = Icons.Default.Settings,
-            containerColor = Color(0xFF141419),
-            contentColor = Color.White,
-            iconTint = HackerNeonRed,
-            borderColor = Color(0xFFDC2626),
-            testTag = "setup_config_button",
-            onClick = onOpenSetup
-        )
-    }
-}
-
-@Composable
-private fun LargeActionButton(
-    text: String,
-    icon: ImageVector,
-    containerColor: Color,
-    contentColor: Color,
-    iconTint: Color,
-    borderColor: Color,
-    testTag: String,
-    onClick: () -> Unit
-) {
-    Button(
-        onClick = onClick,
-        shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = containerColor,
-            contentColor = contentColor
-        ),
-        border = BorderStroke(1.3.dp, borderColor),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp, pressedElevation = 6.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = theme.cardCompose),
+        border = BorderStroke(1.dp, theme.cardBorderCompose),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .clickable { onClick() }
             .testTag(testTag)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth()
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(15.dp)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(22.dp)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = theme.accentSoftBgCompose,
+                    border = BorderStroke(1.dp, theme.accentBrightCompose.copy(alpha = 0.6f)),
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = title,
+                            tint = theme.accentBrightCompose,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = theme.elevatedCompose,
+                    border = BorderStroke(0.8.dp, badgeAccent.copy(alpha = 0.5f))
+                ) {
+                    Text(
+                        text = badgeText,
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = badgeAccent,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             Text(
-                text = text,
+                text = title,
                 style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+                maxLines = 1
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                fontSize = 11.sp,
+                color = theme.textSecondaryCompose,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = footerActionText,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp
+                color = theme.accentLightTextCompose
             )
         }
     }
 }
 
 @Composable
-private fun HowToUseAppCard(sheetState: SheetState) {
+private fun HowToUseAppCard(
+    theme: AppThemePreset,
+    sheetState: SheetState
+) {
     Card(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF121216)
+            containerColor = theme.cardCompose
         ),
-        border = BorderStroke(1.dp, Color(0xFF27272A)),
+        border = BorderStroke(1.dp, theme.cardBorderCompose),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -438,15 +757,15 @@ private fun HowToUseAppCard(sheetState: SheetState) {
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = Color(0xFF1E1E24),
-                    border = BorderStroke(1.dp, HackerNeonRed),
+                    color = theme.accentSoftBgCompose,
+                    border = BorderStroke(1.dp, theme.accentBrightCompose),
                     modifier = Modifier.size(28.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.Info,
                             contentDescription = "Quick Guide",
-                            tint = HackerNeonRed,
+                            tint = theme.accentBrightCompose,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -463,12 +782,12 @@ private fun HowToUseAppCard(sheetState: SheetState) {
 
             val firstCol = sheetState.config.columns.firstOrNull() ?: "A"
             Text(
-                text = "• Start / Stop Bubble: Tap the top button to start or stop the floating bubble anytime.\n\n" +
-                        "• Setup / Configuration: Set your VOLTX SMS API Key (mauthapi), upload Hotmail .txt files, and customize sheet columns (${sheetState.config.columns.joinToString(", ")}) in Setup.\n\n" +
-                        "• Compact VOLTX SMS Bubble: Tap ⚡ -> SMS icon to see live ranges (Facebook ranges always on top). Select a range to allocate 2, 3, or 4 numbers, tap any number to copy, and tap the incoming OTP badge to copy OTP.\n\n" +
-                        "• Sheet & Export: Tapping '$firstCol' advances to the next row automatically. Download as Excel (.xlsx) or CSV anytime.",
+                text = "• Launch Overlay: Tap the glowing START power ring above to open the floating Glass Dock.\n\n" +
+                        "• BDX SMS & Hotmail Access: Open BDX SMS (auto +Full copy & live OTP) or Hotmail Access directly from the floating Tools Hub.\n\n" +
+                        "• Minimize & Maximize: All floating windows minimize into a floating mini-bubble and restore with 1 tap.\n\n" +
+                        "• Sheet & Export: Tapping '$firstCol' advances to the next row automatically. Export as Excel (.xlsx) or CSV anytime.",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFFA1A1AA),
+                color = theme.textSecondaryCompose,
                 lineHeight = 18.sp
             )
         }

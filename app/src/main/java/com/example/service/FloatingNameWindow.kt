@@ -21,17 +21,19 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import com.example.R
 import com.example.data.model.UsaNameGenerator
 import com.example.data.model.UsaPersonName
 import kotlin.math.abs
 
 /**
- * Super-compact, minimalist floating window for USA Male Names.
+ * Bento Glass USA Name Generator Floating Window:
  * - Automatically generates a brand-new random name every time it opens AND after every copy click!
- * - Styled in the Matte Black & Crimson Red theme.
+ * - Styled in the Bento Command Pro Midnight Sapphire glass aesthetic with crisp vector icons.
  */
 class FloatingNameWindow(
     private val context: Context,
@@ -44,9 +46,10 @@ class FloatingNameWindow(
 
     private var currentPerson: UsaPersonName = UsaNameGenerator.nextRandomName()
 
-    // 2 main copy buttons
-    private lateinit var firstNameBtn: TextView
-    private lateinit var lastNameBtn: TextView
+    private lateinit var firstNameTv: TextView
+    private lateinit var lastNameTv: TextView
+    private lateinit var firstNameTile: LinearLayout
+    private lateinit var lastNameTile: LinearLayout
 
     var isShowing: Boolean = false
         private set
@@ -66,7 +69,7 @@ class FloatingNameWindow(
 
         val displayMetrics = context.resources.displayMetrics
         val screenWidth = displayMetrics.widthPixels
-        val windowWidth = dpToPx(236).coerceAtMost((screenWidth * 0.85f).toInt())
+        val windowWidth = dpToPx(248).coerceAtMost((screenWidth * 0.88f).toInt())
 
         val params = WindowManager.LayoutParams(
             windowWidth,
@@ -111,8 +114,24 @@ class FloatingNameWindow(
         onCloseListener()
     }
 
+    fun refreshTheme() {
+        if (!isShowing) return
+        val params = windowParams ?: return
+        val oldRoot = rootView ?: return
+        val newView = buildWindowView(params)
+        rootView = newView
+        try {
+            windowManager.removeView(oldRoot)
+            windowManager.addView(newView, params)
+            updateButtonLabels()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     private fun buildWindowView(params: WindowManager.LayoutParams): View {
+        val theme = com.example.ui.theme.AppThemeManager.current
         val root = FrameLayout(context).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -121,27 +140,24 @@ class FloatingNameWindow(
             setPadding(dpToPx(4), dpToPx(4), dpToPx(4), dpToPx(4))
         }
 
-        // Sleek Matte Black card with crisp Crimson Red border
+        // Sleek Bento Glass Card
         val cardLayout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            val lp = FrameLayout.LayoutParams(
+            layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
             )
-            layoutParams = lp
-            setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(8))
-
-            val bg = GradientDrawable().apply {
+            setPadding(dpToPx(8), dpToPx(8), dpToPx(8), dpToPx(8))
+            background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(14).toFloat()
-                setColor(Color.parseColor("#0D0D11")) // Matte Obsidian Black
-                setStroke(dpToPx(1.5f), Color.parseColor("#DC2626")) // Crisp Red Accent Border
+                cornerRadius = dpToPx(18).toFloat()
+                setColor(theme.bgInt)
+                setStroke(dpToPx(1.5f), theme.accentBrightInt)
             }
-            background = bg
-            elevation = dpToPx(10).toFloat()
+            elevation = dpToPx(12).toFloat()
         }
 
-        // 1. Header Drag Bar with mini Title, Random button (🎲), and Close button (✕)
+        // 1. Bento Glass Capsule Header Bar with Vector Logo, Title, Shuffle Vector Icon, and Close Vector Icon
         val header = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -149,12 +165,45 @@ class FloatingNameWindow(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                bottomMargin = dpToPx(6)
+                bottomMargin = dpToPx(7)
+            }
+            setPadding(dpToPx(8), dpToPx(6), dpToPx(6), dpToPx(6))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(12).toFloat()
+                colors = intArrayOf(theme.headerStartInt, theme.headerEndInt)
+                orientation = GradientDrawable.Orientation.TL_BR
+                setStroke(dpToPx(1f), theme.accentBrightInt)
             }
         }
 
+        val iconBox = FrameLayout(context).apply {
+            val boxSize = dpToPx(24)
+            layoutParams = LinearLayout.LayoutParams(boxSize, boxSize).apply {
+                marginEnd = dpToPx(7)
+            }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(7).toFloat()
+                setColor(theme.accentSoftBgInt)
+                setStroke(dpToPx(1f), theme.accentBrightInt)
+            }
+            val iv = ImageView(context).apply {
+                setImageResource(R.drawable.ic_person_logo)
+                setColorFilter(theme.accentBrightInt)
+                val pad = dpToPx(4)
+                setPadding(pad, pad, pad, pad)
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            }
+            addView(iv)
+        }
+        header.addView(iconBox)
+
         val titleTv = TextView(context).apply {
-            text = "🇺🇸 USA Name"
+            text = "USA Name"
             setTextColor(Color.WHITE)
             textSize = 12f
             typeface = Typeface.DEFAULT_BOLD
@@ -162,56 +211,33 @@ class FloatingNameWindow(
         }
         header.addView(titleTv)
 
-        // Randomize button (🎲) - Matte Black with Red border
-        val randomBtn = TextView(context).apply {
-            text = "🎲"
-            textSize = 14f
-            gravity = Gravity.CENTER
-            val size = dpToPx(26)
-            layoutParams = LinearLayout.LayoutParams(size, size).apply {
-                marginEnd = dpToPx(4)
-            }
-            val btnBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#18181F"))
-                setStroke(dpToPx(1f), Color.parseColor("#EF4444"))
-            }
-            background = btnBg
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                FloatingWindowAnimator.animatePopPulse(this)
-                rollNewName()
-            }
+        // Shuffle / Randomize Vector Button
+        val randomBtn = createHeaderIconButton(
+            iconRes = R.drawable.ic_action_shuffle,
+            bgColor = theme.elevatedInt,
+            borderColor = theme.accentBrightInt,
+            marginEndDp = 5
+        ) { btn ->
+            FloatingWindowAnimator.animatePopPulse(btn)
+            rollNewName()
         }
         header.addView(randomBtn)
 
-        // Close button (✕)
-        val closeBtn = TextView(context).apply {
-            text = "✕"
-            setTextColor(Color.WHITE)
-            textSize = 12f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            val size = dpToPx(26)
-            layoutParams = LinearLayout.LayoutParams(size, size)
-            val btnBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#DC2626"))
-            }
-            background = btnBg
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                dismiss()
-            }
+        // Close Vector Button
+        val closeBtn = createHeaderIconButton(
+            iconRes = R.drawable.ic_window_close,
+            bgColor = Color.parseColor("#EF4444"),
+            borderColor = Color.parseColor("#F87171"),
+            marginEndDp = 0
+        ) {
+            dismiss()
         }
         header.addView(closeBtn)
 
         setupDragTouchListener(header, params)
         cardLayout.addView(header)
 
-        // 2. Row with First Name & Last Name buttons (Sleek Black with Red Accent Border)
+        // 2. 2-Column Bento Grid for First Name & Last Name Tiles
         val buttonsRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -221,102 +247,172 @@ class FloatingNameWindow(
             )
         }
 
-        // First Name Button (Matte Black surface + Crimson Red border)
-        firstNameBtn = TextView(context).apply {
-            val lp = LinearLayout.LayoutParams(0, dpToPx(40), 1f).apply {
-                marginEnd = dpToPx(4)
-            }
-            layoutParams = lp
+        // First Name Bento Tile
+        firstNameTv = TextView(context).apply {
             setTextColor(Color.WHITE)
-            textSize = 12.5f
+            textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            val btnBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(9).toFloat()
-                colors = intArrayOf(
-                    Color.parseColor("#1A1A22"),
-                    Color.parseColor("#121217")
-                )
-                orientation = GradientDrawable.Orientation.TOP_BOTTOM
-                setStroke(dpToPx(1.5f), Color.parseColor("#EF4444"))
-            }
-            background = btnBg
-            elevation = dpToPx(4).toFloat()
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                copyFirstNameAndAutoRoll()
-            }
+            maxLines = 1
         }
-        buttonsRow.addView(firstNameBtn)
+        firstNameTile = createBentoNameTile(
+            badgeLabel = "FIRST",
+            valueTextView = firstNameTv,
+            marginEndDp = 4,
+            marginStartDp = 0
+        ) {
+            copyFirstNameAndAutoRoll()
+        }
+        buttonsRow.addView(firstNameTile)
 
-        // Last Name Button (Matte Black surface + Crimson Red border)
-        lastNameBtn = TextView(context).apply {
-            val lp = LinearLayout.LayoutParams(0, dpToPx(40), 1f).apply {
-                marginStart = dpToPx(4)
-            }
-            layoutParams = lp
+        // Last Name Bento Tile
+        lastNameTv = TextView(context).apply {
             setTextColor(Color.WHITE)
-            textSize = 12.5f
+            textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            val btnBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(9).toFloat()
-                colors = intArrayOf(
-                    Color.parseColor("#1A1A22"),
-                    Color.parseColor("#121217")
-                )
-                orientation = GradientDrawable.Orientation.TOP_BOTTOM
-                setStroke(dpToPx(1.5f), Color.parseColor("#EF4444"))
-            }
-            background = btnBg
-            elevation = dpToPx(4).toFloat()
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                copyLastNameAndAutoRoll()
-            }
+            maxLines = 1
         }
-        buttonsRow.addView(lastNameBtn)
+        lastNameTile = createBentoNameTile(
+            badgeLabel = "LAST",
+            valueTextView = lastNameTv,
+            marginEndDp = 0,
+            marginStartDp = 4
+        ) {
+            copyLastNameAndAutoRoll()
+        }
+        buttonsRow.addView(lastNameTile)
 
         cardLayout.addView(buttonsRow)
         root.addView(cardLayout)
         return root
     }
 
+    private fun createBentoNameTile(
+        badgeLabel: String,
+        valueTextView: TextView,
+        marginEndDp: Int,
+        marginStartDp: Int,
+        onClick: () -> Unit
+    ): LinearLayout {
+        val theme = com.example.ui.theme.AppThemeManager.current
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                if (marginEndDp > 0) marginEnd = dpToPx(marginEndDp)
+                if (marginStartDp > 0) marginStart = dpToPx(marginStartDp)
+            }
+            setPadding(dpToPx(9), dpToPx(7), dpToPx(9), dpToPx(8))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(11).toFloat()
+                colors = intArrayOf(theme.elevatedInt, theme.cardInt)
+                orientation = GradientDrawable.Orientation.TOP_BOTTOM
+                setStroke(dpToPx(1.2f), theme.accentBrightInt)
+            }
+            elevation = dpToPx(4).toFloat()
+
+            val topRow = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    bottomMargin = dpToPx(2)
+                }
+            }
+
+            val badgeTv = TextView(context).apply {
+                text = badgeLabel
+                setTextColor(theme.accentBrightInt)
+                textSize = 8.5f
+                typeface = Typeface.DEFAULT_BOLD
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+
+            val copyIv = ImageView(context).apply {
+                setImageResource(R.drawable.ic_action_copy)
+                setColorFilter(theme.textSecondaryInt)
+                val s = dpToPx(11)
+                layoutParams = LinearLayout.LayoutParams(s, s)
+            }
+
+            topRow.addView(badgeTv)
+            topRow.addView(copyIv)
+
+            addView(topRow)
+            addView(valueTextView)
+
+            FloatingWindowAnimator.applyLiquidTouch(this)
+            setOnClickListener { onClick() }
+        }
+    }
+
+    private fun createHeaderIconButton(
+        iconRes: Int,
+        bgColor: Int,
+        borderColor: Int,
+        marginEndDp: Int,
+        onClick: (View) -> Unit
+    ): FrameLayout {
+        val size = dpToPx(25)
+        return FrameLayout(context).apply {
+            layoutParams = LinearLayout.LayoutParams(size, size).apply {
+                if (marginEndDp > 0) marginEnd = dpToPx(marginEndDp)
+            }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(7).toFloat()
+                setColor(bgColor)
+                setStroke(dpToPx(1f), borderColor)
+            }
+            val iv = ImageView(context).apply {
+                setImageResource(iconRes)
+                setColorFilter(Color.WHITE)
+                val pad = dpToPx(5)
+                setPadding(pad, pad, pad, pad)
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            }
+            addView(iv)
+            FloatingWindowAnimator.applyLiquidTouch(this)
+            setOnClickListener { onClick(this) }
+        }
+    }
+
     private fun rollNewName() {
         currentPerson = UsaNameGenerator.nextRandomName()
         updateButtonLabels()
-        FloatingWindowAnimator.animatePopPulse(firstNameBtn)
-        FloatingWindowAnimator.animatePopPulse(lastNameBtn)
+        FloatingWindowAnimator.animatePopPulse(firstNameTile)
+        FloatingWindowAnimator.animatePopPulse(lastNameTile)
         triggerHapticPulse()
     }
 
     private fun updateButtonLabels() {
-        if (!::firstNameBtn.isInitialized || !::lastNameBtn.isInitialized) return
-        firstNameBtn.text = currentPerson.firstName
-        lastNameBtn.text = currentPerson.lastName
+        if (!::firstNameTv.isInitialized || !::lastNameTv.isInitialized) return
+        firstNameTv.text = currentPerson.firstName
+        lastNameTv.text = currentPerson.lastName
     }
 
     /**
      * Copies the current First Name AND immediately generates a brand-new different First Name
-     * so every single click gives a fresh name without needing to tap the random (🎲) button!
+     * so every single click gives a fresh name without needing to tap the shuffle button!
      */
     private fun copyFirstNameAndAutoRoll() {
         val copiedFirst = currentPerson.firstName
         copyToClipboard("USA First Name", copiedFirst)
         triggerHapticPulse()
-        FloatingWindowAnimator.animatePopPulse(firstNameBtn)
+        FloatingWindowAnimator.animatePopPulse(firstNameTile)
 
-        // Generate the next unique First Name immediately
         val nextFirst = UsaNameGenerator.nextRandomFirstName()
         currentPerson = currentPerson.copy(firstName = nextFirst)
 
-        firstNameBtn.text = "✓ $copiedFirst"
+        firstNameTv.text = "✓ $copiedFirst"
         mainHandler.postDelayed({
             if (isShowing) {
-                firstNameBtn.text = currentPerson.firstName
-                FloatingWindowAnimator.animatePopPulse(firstNameBtn)
+                firstNameTv.text = currentPerson.firstName
+                FloatingWindowAnimator.animatePopPulse(firstNameTile)
             }
         }, 320)
 
@@ -325,23 +421,22 @@ class FloatingNameWindow(
 
     /**
      * Copies the current Last Name AND immediately generates a brand-new different Last Name
-     * so every single click gives a fresh surname without needing to tap the random (🎲) button!
+     * so every single click gives a fresh surname without needing to tap the shuffle button!
      */
     private fun copyLastNameAndAutoRoll() {
         val copiedLast = currentPerson.lastName
         copyToClipboard("USA Last Name", copiedLast)
         triggerHapticPulse()
-        FloatingWindowAnimator.animatePopPulse(lastNameBtn)
+        FloatingWindowAnimator.animatePopPulse(lastNameTile)
 
-        // Generate the next unique Last Name immediately
         val nextLast = UsaNameGenerator.nextRandomLastName()
         currentPerson = currentPerson.copy(lastName = nextLast)
 
-        lastNameBtn.text = "✓ $copiedLast"
+        lastNameTv.text = "✓ $copiedLast"
         mainHandler.postDelayed({
             if (isShowing) {
-                lastNameBtn.text = currentPerson.lastName
-                FloatingWindowAnimator.animatePopPulse(lastNameBtn)
+                lastNameTv.text = currentPerson.lastName
+                FloatingWindowAnimator.animatePopPulse(lastNameTile)
             }
         }, 320)
 

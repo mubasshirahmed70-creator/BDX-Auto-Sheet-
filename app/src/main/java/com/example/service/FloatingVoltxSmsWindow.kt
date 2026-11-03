@@ -83,7 +83,7 @@ class FloatingVoltxSmsWindow(
     // UI Containers
     private lateinit var stepTitleTv: TextView
     private lateinit var loadingSpinner: ProgressBar
-    private lateinit var refreshBtn: TextView
+    private lateinit var refreshBtn: View
     private lateinit var rangeStepContainer: LinearLayout
     private lateinit var rangesListContainer: LinearLayout
     private lateinit var rangeHintTv: TextView
@@ -262,6 +262,44 @@ class FloatingVoltxSmsWindow(
         }
     }
 
+    fun refreshTheme() {
+        if (!isShowing) return
+        val params = windowParams ?: return
+        val container = rootContainer ?: return
+        val wasMin = isMinimized
+
+        container.removeAllViews()
+        val card = buildCompactWindowView(params)
+        mainCardView = card
+        container.addView(card)
+
+        val minBubble = FloatingWindowAnimator.createMinimizedWindowBubble(
+            context = context,
+            windowManager = windowManager,
+            rootViewProvider = { rootContainer },
+            params = params,
+            iconResId = R.drawable.ic_sms_logo,
+            accentColorHex = null,
+            tintIconWhite = true,
+            onTapMaximize = {
+                triggerHapticPulse()
+                setMinimizedState(false)
+            }
+        )
+        minimizedBubbleView = minBubble
+        container.addView(minBubble)
+
+        if (wasMin) {
+            card.visibility = View.GONE
+            minBubble.visibility = View.VISIBLE
+        } else {
+            card.visibility = View.VISIBLE
+            minBubble.visibility = View.GONE
+        }
+        populateRangesList()
+        renderState(repo.state.value)
+    }
+
     private fun buildRootContainerView(params: WindowManager.LayoutParams): FrameLayout {
         val container = FrameLayout(context).apply {
             layoutParams = ViewGroup.LayoutParams(
@@ -280,7 +318,7 @@ class FloatingVoltxSmsWindow(
             rootViewProvider = { rootContainer },
             params = params,
             iconResId = R.drawable.ic_sms_logo,
-            accentColorHex = "#EF4444",
+            accentColorHex = null,
             tintIconWhite = true,
             onTapMaximize = {
                 triggerHapticPulse()
@@ -296,47 +334,72 @@ class FloatingVoltxSmsWindow(
     }
 
     private fun buildCompactWindowView(params: WindowManager.LayoutParams): LinearLayout {
+        val theme = com.example.ui.theme.AppThemeManager.current
         val rootCard = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(14).toFloat()
-                setColor(Color.parseColor("#0D0D11")) // Matte Obsidian Black
-                setStroke(dpToPx(1.5f), Color.parseColor("#DC2626"))
+                cornerRadius = dpToPx(18).toFloat()
+                colors = intArrayOf(theme.headerStartInt, theme.bgInt)
+                orientation = GradientDrawable.Orientation.TOP_BOTTOM
+                setStroke(dpToPx(1.5f), theme.accentBrightInt)
             }
             background = bg
-            elevation = dpToPx(10).toFloat()
-            setPadding(dpToPx(8), dpToPx(7), dpToPx(8), dpToPx(8))
+            elevation = dpToPx(12).toFloat()
+            setPadding(dpToPx(10), dpToPx(9), dpToPx(10), dpToPx(10))
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
             )
         }
 
-        // 1. COMPACT DRAGGABLE HEADER BAR
+        // 1. BENTO GLASS CAPSULE HEADER BAR
         val headerBar = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dpToPx(2), dpToPx(1), dpToPx(2), dpToPx(5))
+            setPadding(dpToPx(8), dpToPx(6), dpToPx(6), dpToPx(6))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(12).toFloat()
+                setColor(theme.cardInt)
+                setStroke(dpToPx(1f), theme.cardBorderInt)
+            }
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        val logoIv = ImageView(context).apply {
-            setImageResource(R.drawable.ic_sms_logo)
-            setColorFilter(Color.parseColor("#EF4444"))
-            val s = dpToPx(14)
-            layoutParams = LinearLayout.LayoutParams(s, s).apply {
-                marginEnd = dpToPx(5)
+            ).apply {
+                bottomMargin = dpToPx(8)
             }
         }
-        headerBar.addView(logoIv)
+
+        val iconBox = FrameLayout(context).apply {
+            val s = dpToPx(24)
+            layoutParams = LinearLayout.LayoutParams(s, s).apply {
+                marginEnd = dpToPx(7)
+            }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(7).toFloat()
+                setColor(theme.accentSoftBgInt)
+                setStroke(dpToPx(1f), theme.accentBrightInt)
+            }
+            val iv = ImageView(context).apply {
+                setImageResource(R.drawable.ic_sms_logo)
+                setColorFilter(theme.accentBrightInt)
+                val pad = dpToPx(4)
+                setPadding(pad, pad, pad, pad)
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            }
+            addView(iv)
+        }
+        headerBar.addView(iconBox)
 
         stepTitleTv = TextView(context).apply {
-            text = "VOLTX • Ranges"
-            setTextColor(Color.parseColor("#F4F4F5"))
+            text = "BDX SMS • Ranges"
+            setTextColor(Color.WHITE)
             textSize = 11.5f
             typeface = Typeface.DEFAULT_BOLD
             maxLines = 1
@@ -347,85 +410,51 @@ class FloatingVoltxSmsWindow(
 
         loadingSpinner = ProgressBar(context).apply {
             visibility = View.GONE
-            layoutParams = LinearLayout.LayoutParams(dpToPx(13), dpToPx(13)).apply {
-                marginEnd = dpToPx(4)
+            layoutParams = LinearLayout.LayoutParams(dpToPx(14), dpToPx(14)).apply {
+                marginEnd = dpToPx(5)
             }
         }
         headerBar.addView(loadingSpinner)
 
-        // Refresh button (reloads ranges in Step 1 or checks OTPs in Step 2)
-        refreshBtn = TextView(context).apply {
-            text = "↻"
-            setTextColor(Color.parseColor("#E4E4E7"))
-            textSize = 12f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            val s = dpToPx(22)
-            layoutParams = LinearLayout.LayoutParams(s, s).apply {
-                marginEnd = dpToPx(4)
-            }
-            val bg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#181820"))
-                setStroke(dpToPx(1f), Color.parseColor("#3F3F46"))
-            }
-            background = bg
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                FloatingWindowAnimator.animatePopPulse(this)
-                if (currentStep == WindowStep.SELECT_RANGE) {
-                    fetchLiveRanges(silent = false)
-                } else {
-                    checkOtpsNow(manual = true)
-                }
+        // Refresh Vector Icon Button
+        refreshBtn = createHeaderVectorIconButton(
+            iconRes = R.drawable.ic_action_refresh,
+            bgColor = theme.elevatedInt,
+            borderColor = theme.cardBorderInt,
+            iconTint = theme.accentLightTextInt,
+            marginEndDp = 4
+        ) {
+            FloatingWindowAnimator.animatePopPulse(refreshBtn)
+            if (currentStep == WindowStep.SELECT_RANGE) {
+                fetchLiveRanges(silent = false)
+            } else {
+                checkOtpsNow(manual = true)
             }
         }
         headerBar.addView(refreshBtn)
 
-        // Minimize button (—) -> Morphs into floating SMS bubble
-        val minimizeBtn = TextView(context).apply {
-            text = "—"
-            setTextColor(Color.WHITE)
-            textSize = 11f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            val s = dpToPx(22)
-            layoutParams = LinearLayout.LayoutParams(s, s).apply {
-                marginEnd = dpToPx(4)
-            }
-            val bg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#181820"))
-                setStroke(dpToPx(1f), Color.parseColor("#EF4444"))
-            }
-            background = bg
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                triggerHapticPulse()
-                setMinimizedState(true)
-            }
+        // Minimize Vector Icon Button
+        val minimizeBtn = createHeaderVectorIconButton(
+            iconRes = R.drawable.ic_window_minimize,
+            bgColor = theme.elevatedInt,
+            borderColor = theme.accentBrightInt,
+            iconTint = Color.WHITE,
+            marginEndDp = 4
+        ) {
+            triggerHapticPulse()
+            setMinimizedState(true)
         }
         headerBar.addView(minimizeBtn)
 
-        // Close button (✕)
-        val closeBtn = TextView(context).apply {
-            text = "✕"
-            setTextColor(Color.WHITE)
-            textSize = 11f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            val s = dpToPx(22)
-            layoutParams = LinearLayout.LayoutParams(s, s)
-            val bg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#DC2626"))
-            }
-            background = bg
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener { dismiss() }
+        // Close Vector Icon Button
+        val closeBtn = createHeaderVectorIconButton(
+            iconRes = R.drawable.ic_window_close,
+            bgColor = theme.accentInt,
+            borderColor = theme.accentBrightInt,
+            iconTint = Color.WHITE,
+            marginEndDp = 0
+        ) {
+            dismiss()
         }
         headerBar.addView(closeBtn)
 
@@ -444,10 +473,11 @@ class FloatingVoltxSmsWindow(
         }
 
         rangeHintTv = TextView(context).apply {
-            text = "📘 Facebook ranges prioritized on top"
-            setTextColor(Color.parseColor("#A1A1AA"))
+            text = "Facebook ranges prioritized on top"
+            setTextColor(theme.textSecondaryInt)
             textSize = 9.5f
-            setPadding(dpToPx(2), 0, dpToPx(2), dpToPx(4))
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(dpToPx(2), 0, dpToPx(2), dpToPx(5))
         }
         rangeStepContainer.addView(rangeHintTv)
 
@@ -480,8 +510,8 @@ class FloatingVoltxSmsWindow(
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(7).toFloat()
-                setColor(Color.parseColor("#181820"))
-                setStroke(dpToPx(1f), Color.parseColor("#EF4444"))
+                setColor(theme.elevatedInt)
+                setStroke(dpToPx(1f), theme.accentBrightInt)
             }
             background = bg
             layoutParams = LinearLayout.LayoutParams(
@@ -536,8 +566,8 @@ class FloatingVoltxSmsWindow(
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#181820"))
-                setStroke(dpToPx(1f), Color.parseColor("#EF4444"))
+                setColor(theme.elevatedInt)
+                setStroke(dpToPx(1f), theme.accentBrightInt)
             }
             background = bg
             FloatingWindowAnimator.applyLiquidTouch(this)
@@ -561,15 +591,15 @@ class FloatingVoltxSmsWindow(
 
         val clearBtn = TextView(context).apply {
             text = "Clear"
-            setTextColor(Color.parseColor("#A1A1AA"))
+            setTextColor(theme.textSecondaryInt)
             textSize = 9.5f
             typeface = Typeface.DEFAULT_BOLD
             setPadding(dpToPx(6), dpToPx(3), dpToPx(6), dpToPx(3))
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#18181D"))
-                setStroke(dpToPx(1f), Color.parseColor("#27272A"))
+                setColor(theme.cardInt)
+                setStroke(dpToPx(1f), theme.cardBorderInt)
             }
             background = bg
             FloatingWindowAnimator.applyLiquidTouch(this)
@@ -632,7 +662,7 @@ class FloatingVoltxSmsWindow(
 
         statusFooterTv = TextView(context).apply {
             text = "Tap number to copy • Auto-OTP (5s)"
-            setTextColor(Color.parseColor("#A1A1AA"))
+            setTextColor(theme.textSecondaryInt)
             textSize = 9.5f
             gravity = Gravity.CENTER
             setPadding(dpToPx(2), dpToPx(4), dpToPx(2), 0)
@@ -645,11 +675,47 @@ class FloatingVoltxSmsWindow(
         return rootCard
     }
 
+    private fun createHeaderVectorIconButton(
+        iconRes: Int,
+        bgColor: Int,
+        borderColor: Int,
+        iconTint: Int,
+        marginEndDp: Int,
+        onClick: () -> Unit
+    ): View {
+        val s = dpToPx(24)
+        return FrameLayout(context).apply {
+            layoutParams = LinearLayout.LayoutParams(s, s).apply {
+                if (marginEndDp > 0) marginEnd = dpToPx(marginEndDp)
+            }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(7).toFloat()
+                setColor(bgColor)
+                setStroke(dpToPx(1f), borderColor)
+            }
+            val iv = ImageView(context).apply {
+                setImageResource(iconRes)
+                setColorFilter(iconTint)
+                val pad = dpToPx(5)
+                setPadding(pad, pad, pad, pad)
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            }
+            addView(iv)
+            FloatingWindowAnimator.applyLiquidTouch(this)
+            setOnClickListener { onClick() }
+        }
+    }
+
     private fun createCountOptionButton(
         label: String,
         isPrimary: Boolean,
         onClick: () -> Unit
     ): TextView {
+        val theme = com.example.ui.theme.AppThemeManager.current
         return TextView(context).apply {
             text = label
             setTextColor(Color.WHITE)
@@ -659,13 +725,13 @@ class FloatingVoltxSmsWindow(
             setPadding(dpToPx(6), dpToPx(6), dpToPx(6), dpToPx(6))
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(7).toFloat()
+                cornerRadius = dpToPx(9).toFloat()
                 if (isPrimary) {
-                    setColor(Color.parseColor("#181820"))
-                    setStroke(dpToPx(1.2f), Color.parseColor("#EF4444"))
+                    setColor(theme.elevatedInt)
+                    setStroke(dpToPx(1.2f), theme.accentBrightInt)
                 } else {
-                    setColor(Color.parseColor("#1E1E24"))
-                    setStroke(dpToPx(1f), Color.parseColor("#3F3F46"))
+                    setColor(theme.cardInt)
+                    setStroke(dpToPx(1f), theme.cardBorderInt)
                 }
             }
             background = bg
@@ -683,7 +749,7 @@ class FloatingVoltxSmsWindow(
     private fun updateStepVisibility(animate: Boolean) {
         if (!::rangeStepContainer.isInitialized) return
         if (currentStep == WindowStep.SELECT_RANGE) {
-            stepTitleTv.text = "VOLTX • Ranges"
+            stepTitleTv.text = "BDX SMS • Ranges"
             rangeStepContainer.visibility = View.VISIBLE
             numberStepContainer.visibility = View.GONE
             if (animate) {
@@ -692,8 +758,8 @@ class FloatingVoltxSmsWindow(
         } else {
             val rid = repo.state.value.selectedRange.ifBlank { "--" }
             val country = VoltxSmsClient.detectCountryFromRange(rid)
-            stepTitleTv.text = "VOLTX • Numbers"
-            selectedRangeLabelTv.text = if (country.isNotBlank()) "$rid • $country" else "📘 $rid"
+            stepTitleTv.text = "BDX SMS • Numbers"
+            selectedRangeLabelTv.text = if (country.isNotBlank()) "$rid • $country" else rid
             rangeStepContainer.visibility = View.GONE
             numberStepContainer.visibility = View.VISIBLE
             if (animate) {
@@ -707,7 +773,7 @@ class FloatingVoltxSmsWindow(
         if (apiKey.isBlank()) {
             populateRangesList()
             if (!silent) {
-                Toast.makeText(context, "App-এর Setup থেকে VOLTX API Key সেট করুন", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "App-এর Setup থেকে BDX SMS API Key সেট করুন", Toast.LENGTH_SHORT).show()
             }
             return
         }
@@ -715,7 +781,7 @@ class FloatingVoltxSmsWindow(
         if (isFetchingRanges) return
         isFetchingRanges = true
         loadingSpinner.visibility = View.VISIBLE
-        rangeHintTv.text = "⏳ Loading live ranges..."
+        rangeHintTv.text = "Loading live ranges..."
 
         scope.launch {
             val res = VoltxSmsClient.getLiveAccessRanges(apiKey)
@@ -729,7 +795,7 @@ class FloatingVoltxSmsWindow(
                     populateRangesList()
                 }
                 is VoltxApiResult.Error -> {
-                    rangeHintTv.text = "⚠️ ${res.message}"
+                    rangeHintTv.text = res.message
                     populateRangesList()
                     if (!silent) {
                         Toast.makeText(context, res.message, Toast.LENGTH_SHORT).show()
@@ -745,9 +811,9 @@ class FloatingVoltxSmsWindow(
 
         val apiKey = repo.state.value.apiKey
         if (apiKey.isBlank()) {
-            rangeHintTv.text = "⚠️ API Key not set"
+            rangeHintTv.text = "API Key not set"
             val msgTv = TextView(context).apply {
-                text = "অ্যাপের ভেতরে Setup / Configuration অপশনে গিয়ে আপনার VOLTX API Key (mauthapi) সেভ করুন।"
+                text = "অ্যাপের ভেতরে Setup & Config অপশনে গিয়ে আপনার BDX SMS API Key সেভ করুন।"
                 setTextColor(Color.parseColor("#E4E4E7"))
                 textSize = 10.5f
                 setPadding(dpToPx(6), dpToPx(8), dpToPx(6), dpToPx(8))
@@ -756,7 +822,6 @@ class FloatingVoltxSmsWindow(
             return
         }
 
-        // Flatten ranges with Facebook always prioritized at the very top
         data class RangeEntry(
             val sid: String,
             val rawRange: String,
@@ -777,7 +842,6 @@ class FloatingVoltxSmsWindow(
             }
         }
 
-        // If user had a previously saved range and live list is empty right now, still show it
         val savedRid = VoltxSmsClient.cleanRangeId(repo.state.value.selectedRange)
         if (entries.isEmpty() && savedRid.isNotEmpty()) {
             entries.add(
@@ -792,9 +856,9 @@ class FloatingVoltxSmsWindow(
         }
 
         if (entries.isEmpty()) {
-            rangeHintTv.text = "Tap ↻ to load active ranges"
+            rangeHintTv.text = "Tap refresh icon to load active ranges"
             val emptyTv = TextView(context).apply {
-                text = if (isFetchingRanges) "Loading ranges..." else "কোনো লাইভ রেঞ্জ পাওয়া যায়নি। ওপরে ↻ বাটনে ট্যাপ করুন।"
+                text = if (isFetchingRanges) "Loading ranges..." else "কোনো লাইভ রেঞ্জ পাওয়া যায়নি। ওপরে রিফ্রেশ বাটনে ট্যাপ করুন।"
                 setTextColor(Color.parseColor("#A1A1AA"))
                 textSize = 10.5f
                 setPadding(dpToPx(6), dpToPx(8), dpToPx(6), dpToPx(8))
@@ -805,33 +869,34 @@ class FloatingVoltxSmsWindow(
 
         val fbCount = entries.count { it.isFb }
         rangeHintTv.text = if (fbCount > 0) {
-            "📘 Facebook ($fbCount) prioritized • Tap a range:"
+            "Facebook ($fbCount) prioritized • Tap a range:"
         } else {
-            "🌐 Active Ranges (${entries.size}) • Tap a range:"
+            "Active Ranges (${entries.size}) • Tap a range:"
         }
 
+        val theme = com.example.ui.theme.AppThemeManager.current
         entries.forEachIndexed { index, entry ->
             val isSelected = entry.cleanRid == savedRid
             val row = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dpToPx(7), dpToPx(6), dpToPx(7), dpToPx(6))
+                setPadding(dpToPx(8), dpToPx(7), dpToPx(8), dpToPx(7))
                 val bg = GradientDrawable().apply {
                     shape = GradientDrawable.RECTANGLE
-                    cornerRadius = dpToPx(7).toFloat()
+                    cornerRadius = dpToPx(9).toFloat()
                     setColor(
                         when {
-                            isSelected -> Color.parseColor("#241115")
-                            entry.isFb -> Color.parseColor("#14161F")
-                            else -> Color.parseColor("#16161C")
+                            isSelected -> theme.accentSoftBgInt
+                            entry.isFb -> theme.elevatedInt
+                            else -> theme.cardInt
                         }
                     )
                     setStroke(
                         dpToPx(1f),
                         when {
-                            isSelected -> Color.parseColor("#EF4444")
-                            entry.isFb -> Color.parseColor("#DC2626")
-                            else -> Color.parseColor("#27272A")
+                            isSelected -> theme.accentBrightInt
+                            entry.isFb -> theme.accentInt
+                            else -> theme.cardBorderInt
                         }
                     )
                 }
@@ -851,17 +916,23 @@ class FloatingVoltxSmsWindow(
                 }
             }
 
-            // Left Service Badge (e.g. "📘 FB")
+            // Left Service Badge Pill ("FB" or Service ID)
             val badgeTv = TextView(context).apply {
-                text = if (entry.isFb) "📘 FB" else entry.sid.take(5)
-                setTextColor(if (entry.isFb) Color.parseColor("#60A5FA") else Color.parseColor("#A1A1AA"))
-                textSize = 9.5f
+                text = if (entry.isFb) "FB" else entry.sid.take(4).uppercase()
+                setTextColor(Color.WHITE)
+                textSize = 8.5f
                 typeface = Typeface.DEFAULT_BOLD
+                setPadding(dpToPx(5), dpToPx(2), dpToPx(5), dpToPx(2))
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = dpToPx(5).toFloat()
+                    setColor(if (entry.isFb) theme.accentInt else theme.cardBorderInt)
+                }
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply {
-                    marginEnd = dpToPx(5)
+                    marginEnd = dpToPx(6)
                 }
             }
             row.addView(badgeTv)
@@ -878,20 +949,20 @@ class FloatingVoltxSmsWindow(
             }
             row.addView(rangeTv)
 
-            // Right Side: Small Country Flag + Country Name Pill Badge
+            // Right Side: Country Flag + Country Name Pill Badge
             val countryTv = TextView(context).apply {
                 text = entry.countryLabel
-                setTextColor(Color.parseColor("#FCA5A5"))
+                setTextColor(theme.accentLightTextInt)
                 textSize = 9f
                 typeface = Typeface.DEFAULT_BOLD
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
-                setPadding(dpToPx(5), dpToPx(2), dpToPx(5), dpToPx(2))
+                setPadding(dpToPx(6), dpToPx(2), dpToPx(6), dpToPx(2))
                 val pillBg = GradientDrawable().apply {
                     shape = GradientDrawable.RECTANGLE
-                    cornerRadius = dpToPx(5).toFloat()
-                    setColor(Color.parseColor("#1F1215"))
-                    setStroke(dpToPx(0.8f), Color.parseColor("#7F1D1D"))
+                    cornerRadius = dpToPx(6).toFloat()
+                    setColor(theme.accentSoftBgInt)
+                    setStroke(dpToPx(0.8f), theme.accentInt)
                 }
                 background = pillBg
                 layoutParams = LinearLayout.LayoutParams(
@@ -1047,20 +1118,21 @@ class FloatingVoltxSmsWindow(
      * - Right side: Clickable OTP badge when OTP arrives (tapping copies the OTP immediately) or waiting indicator `⏳`
      */
     private fun buildCompactNumberRow(item: VoltxAllocatedNumber): View {
+        val theme = com.example.ui.theme.AppThemeManager.current
         val hasOtp = !item.otpCode.isNullOrBlank()
         val formattedNumber = repo.formatNumberForCopy(item)
 
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dpToPx(7), dpToPx(5), dpToPx(7), dpToPx(5))
+            setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6))
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(7).toFloat()
-                setColor(if (hasOtp) Color.parseColor("#11221B") else Color.parseColor("#16161C"))
+                cornerRadius = dpToPx(9).toFloat()
+                setColor(if (hasOtp) Color.parseColor("#0D261F") else theme.cardInt)
                 setStroke(
                     dpToPx(1f),
-                    if (hasOtp) Color.parseColor("#10B981") else Color.parseColor("#27272A")
+                    if (hasOtp) Color.parseColor("#10B981") else theme.cardBorderInt
                 )
             }
             background = bg
@@ -1068,11 +1140,21 @@ class FloatingVoltxSmsWindow(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                bottomMargin = dpToPx(4)
+                bottomMargin = dpToPx(5)
             }
         }
 
-        // Clickable Phone Number Text (Copies Number on tap)
+        // Crisp Copy Icon + Phone Number (+Full)
+        val copyIconIv = ImageView(context).apply {
+            setImageResource(R.drawable.ic_action_copy)
+            setColorFilter(theme.accentBrightInt)
+            val s = dpToPx(13)
+            layoutParams = LinearLayout.LayoutParams(s, s).apply {
+                marginEnd = dpToPx(6)
+            }
+        }
+        row.addView(copyIconIv)
+
         val numTv = TextView(context).apply {
             text = formattedNumber
             setTextColor(Color.WHITE)
@@ -1084,30 +1166,26 @@ class FloatingVoltxSmsWindow(
             FloatingWindowAnimator.applyLiquidTouch(this)
             setOnClickListener {
                 FloatingWindowAnimator.animatePopPulse(row)
-                copyToClipboard("VOLTX Number", formattedNumber)
+                copyToClipboard("BDX SMS Number", formattedNumber)
                 triggerHapticPulse()
-                statusFooterTv.text = "📋 Copied Number: $formattedNumber"
-                Toast.makeText(context, "📋 নাম্বার কপি হয়েছে: $formattedNumber", Toast.LENGTH_SHORT).show()
+                statusFooterTv.text = "Copied Number: $formattedNumber"
+                Toast.makeText(context, "নাম্বার কপি হয়েছে: $formattedNumber", Toast.LENGTH_SHORT).show()
             }
         }
         row.addView(numTv)
 
         if (hasOtp) {
-            // Compact clickable OTP badge right beside the number (Copies OTP on tap)
             val otpCode = item.otpCode.orEmpty()
-            val otpBadge = TextView(context).apply {
-                text = "🔑 $otpCode"
-                setTextColor(Color.WHITE)
-                textSize = 10.5f
-                typeface = Typeface.DEFAULT_BOLD
+            val otpPill = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
                 setPadding(dpToPx(7), dpToPx(3), dpToPx(7), dpToPx(3))
-                val badgeBg = GradientDrawable().apply {
+                background = GradientDrawable().apply {
                     shape = GradientDrawable.RECTANGLE
                     cornerRadius = dpToPx(6).toFloat()
                     setColor(Color.parseColor("#059669"))
                     setStroke(dpToPx(1f), Color.parseColor("#34D399"))
                 }
-                background = badgeBg
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
@@ -1117,21 +1195,43 @@ class FloatingVoltxSmsWindow(
                 FloatingWindowAnimator.applyLiquidTouch(this)
                 setOnClickListener {
                     FloatingWindowAnimator.animatePopPulse(this)
-                    copyToClipboard("VOLTX OTP", otpCode)
+                    copyToClipboard("BDX SMS OTP", otpCode)
                     triggerHapticPulse()
-                    statusFooterTv.text = "🔑 Copied OTP: $otpCode"
-                    Toast.makeText(context, "🔑 OTP কপি হয়েছে: $otpCode", Toast.LENGTH_SHORT).show()
+                    statusFooterTv.text = "Copied OTP: $otpCode"
+                    Toast.makeText(context, "OTP কপি হয়েছে: $otpCode", Toast.LENGTH_SHORT).show()
                 }
             }
-            row.addView(otpBadge)
-        } else {
-            val waitingTv = TextView(context).apply {
-                text = "⏳"
-                setTextColor(Color.parseColor("#A1A1AA"))
-                textSize = 10f
-                setPadding(dpToPx(4), dpToPx(2), dpToPx(2), dpToPx(2))
+            val keyIv = ImageView(context).apply {
+                setImageResource(R.drawable.ic_action_key)
+                setColorFilter(Color.WHITE)
+                val s = dpToPx(11)
+                layoutParams = LinearLayout.LayoutParams(s, s).apply {
+                    marginEnd = dpToPx(4)
+                }
             }
-            row.addView(waitingTv)
+            val codeTv = TextView(context).apply {
+                text = otpCode
+                setTextColor(Color.WHITE)
+                textSize = 10.5f
+                typeface = Typeface.DEFAULT_BOLD
+            }
+            otpPill.addView(keyIv)
+            otpPill.addView(codeTv)
+            row.addView(otpPill)
+        } else {
+            val waitingBadge = TextView(context).apply {
+                text = "WAIT"
+                setTextColor(theme.textSecondaryInt)
+                textSize = 8.5f
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(dpToPx(5), dpToPx(2), dpToPx(5), dpToPx(2))
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = dpToPx(4).toFloat()
+                    setColor(theme.elevatedInt)
+                }
+            }
+            row.addView(waitingBadge)
         }
 
         return row

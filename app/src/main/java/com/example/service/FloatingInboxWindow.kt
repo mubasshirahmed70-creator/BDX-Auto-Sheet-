@@ -76,14 +76,14 @@ class FloatingInboxWindow(
     // UI references
     private lateinit var queueStatusTextView: TextView
     private lateinit var activeHotmailTextView: TextView
-    private lateinit var copyFullHotmailButton: TextView
-    private lateinit var copyMailOnlyButton: TextView
+    private lateinit var copyFullHotmailButton: View
+    private lateinit var copyMailOnlyButton: View
     private lateinit var inputEditText: EditText
     private lateinit var emailResultContainer: LinearLayout
     private lateinit var emailTextView: TextView
-    private lateinit var copyEmailButton: TextView
+    private lateinit var copyEmailButton: View
     private lateinit var modeChipButton: TextView
-    private lateinit var getInboxButton: TextView
+    private lateinit var getInboxButton: View
     private lateinit var loadingBar: ProgressBar
     private lateinit var statusTextView: TextView
     private lateinit var resultsContainer: LinearLayout
@@ -288,6 +288,46 @@ class FloatingInboxWindow(
         onCloseListener()
     }
 
+    fun refreshTheme() {
+        if (!isShowing) return
+        val params = windowParams ?: return
+        val container = rootContainer ?: return
+        val wasMin = isMinimized
+        val prevText = if (::inputEditText.isInitialized) inputEditText.text.toString() else ""
+
+        container.removeAllViews()
+        val card = buildWindowView(params)
+        mainCardView = card
+        container.addView(card)
+
+        val minBubble = FloatingWindowAnimator.createMinimizedWindowBubble(
+            context = context,
+            windowManager = windowManager,
+            rootViewProvider = { rootContainer },
+            params = params,
+            iconResId = R.drawable.ic_mail_logo,
+            accentColorHex = null,
+            tintIconWhite = true,
+            onTapMaximize = {
+                setMinimizedState(false)
+            }
+        )
+        minimizedBubbleView = minBubble
+        container.addView(minBubble)
+
+        if (wasMin) {
+            card.visibility = View.GONE
+            minBubble.visibility = View.VISIBLE
+        } else {
+            card.visibility = View.VISIBLE
+            minBubble.visibility = View.GONE
+        }
+        updateQueueHeader(hotmailStockRepo.stockState.value)
+        if (prevText.isNotEmpty()) {
+            inputEditText.setText(prevText)
+        }
+    }
+
     private fun buildRootContainerView(params: WindowManager.LayoutParams): FrameLayout {
         val container = FrameLayout(context).apply {
             layoutParams = ViewGroup.LayoutParams(
@@ -306,7 +346,7 @@ class FloatingInboxWindow(
             rootViewProvider = { rootContainer },
             params = params,
             iconResId = R.drawable.ic_mail_logo,
-            accentColorHex = "#EF4444",
+            accentColorHex = null,
             tintIconWhite = true,
             onTapMaximize = {
                 setMinimizedState(false)
@@ -322,19 +362,21 @@ class FloatingInboxWindow(
 
     @SuppressLint("ClickableViewAccessibility")
     private fun buildWindowView(params: WindowManager.LayoutParams): LinearLayout {
+        val theme = com.example.ui.theme.AppThemeManager.current
         val rootCard = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
 
             val cardBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(16).toFloat()
-                setColor(Color.parseColor("#0D0D11")) // Matte Obsidian Black
-                setStroke(dpToPx(1.5f), Color.parseColor("#DC2626")) // Crisp Red Border
+                cornerRadius = dpToPx(18).toFloat()
+                colors = intArrayOf(theme.headerStartInt, theme.bgInt)
+                orientation = GradientDrawable.Orientation.TOP_BOTTOM
+                setStroke(dpToPx(1.5f), theme.accentBrightInt)
             }
             background = cardBg
-            elevation = dpToPx(10).toFloat()
-            setPadding(dpToPx(12), dpToPx(8), dpToPx(12), dpToPx(12))
+            elevation = dpToPx(12).toFloat()
+            setPadding(dpToPx(11), dpToPx(9), dpToPx(11), dpToPx(11))
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
@@ -348,87 +390,76 @@ class FloatingInboxWindow(
             }
         }
 
-        // 1. Draggable Header Bar with Minimize (—) and Close (✕)
+        // 1. Bento Glass Capsule Header Bar with Vector Minimize & Close Icons
         val headerLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dpToPx(4), dpToPx(2), dpToPx(4), dpToPx(8))
+            setPadding(dpToPx(8), dpToPx(6), dpToPx(6), dpToPx(6))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(12).toFloat()
+                setColor(theme.cardInt)
+                setStroke(dpToPx(1f), theme.cardBorderInt)
+            }
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        val dragHandle = TextView(context).apply {
-            text = "::: "
-            setTextColor(Color.parseColor("#94A3B8"))
-            textSize = 14f
-            setTypeface(null, Typeface.BOLD)
-            setPadding(dpToPx(2), dpToPx(2), dpToPx(6), dpToPx(2))
-        }
-
-        val mailLogoIv = android.widget.ImageView(context).apply {
-            setImageResource(R.drawable.ic_mail_logo)
-            setColorFilter(Color.parseColor("#EF4444"))
-            val logoSize = dpToPx(18)
-            val lp = LinearLayout.LayoutParams(logoSize, logoSize).apply {
-                marginEnd = dpToPx(6)
+            ).apply {
+                bottomMargin = dpToPx(8)
             }
-            layoutParams = lp
+        }
+
+        val iconBox = FrameLayout(context).apply {
+            val s = dpToPx(24)
+            layoutParams = LinearLayout.LayoutParams(s, s).apply {
+                marginEnd = dpToPx(8)
+            }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(7).toFloat()
+                setColor(theme.accentSoftBgInt)
+                setStroke(dpToPx(1f), theme.accentBrightInt)
+            }
+            val iv = android.widget.ImageView(context).apply {
+                setImageResource(R.drawable.ic_mail_logo)
+                setColorFilter(theme.accentBrightInt)
+                val pad = dpToPx(4)
+                setPadding(pad, pad, pad, pad)
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            }
+            addView(iv)
         }
 
         val titleText = TextView(context).apply {
-            text = "MailGen Inbox"
+            text = "Hotmail Access"
             setTextColor(Color.WHITE)
-            textSize = 13.5f
+            textSize = 13f
             setTypeface(null, Typeface.BOLD)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        // Minimize Button (—)
-        val minimizeButton = TextView(context).apply {
-            text = "—"
-            setTextColor(Color.WHITE)
-            textSize = 12f
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            val s = dpToPx(24)
-            layoutParams = LinearLayout.LayoutParams(s, s).apply {
-                marginEnd = dpToPx(5)
-            }
-            val bg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#181820"))
-                setStroke(dpToPx(1f), Color.parseColor("#EF4444"))
-            }
-            background = bg
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                setMinimizedState(true)
-            }
+        val minimizeButton = createVectorSquareButton(
+            iconRes = R.drawable.ic_window_minimize,
+            bgColor = theme.elevatedInt,
+            borderColor = theme.accentBrightInt,
+            marginEndDp = 5
+        ) {
+            setMinimizedState(true)
         }
 
-        val closeButton = TextView(context).apply {
-            text = "✕"
-            setTextColor(Color.WHITE)
-            textSize = 12f
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            val s = dpToPx(24)
-            layoutParams = LinearLayout.LayoutParams(s, s)
-            val bg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#DC2626"))
-            }
-            background = bg
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener { dismiss() }
+        val closeButton = createVectorSquareButton(
+            iconRes = R.drawable.ic_window_close,
+            bgColor = theme.accentInt,
+            borderColor = theme.accentBrightInt,
+            marginEndDp = 0
+        ) {
+            dismiss()
         }
 
-        headerLayout.addView(dragHandle)
-        headerLayout.addView(mailLogoIv)
+        headerLayout.addView(iconBox)
         headerLayout.addView(titleText)
         headerLayout.addView(minimizeButton)
         headerLayout.addView(closeButton)
@@ -436,11 +467,11 @@ class FloatingInboxWindow(
         setupDragListener(headerLayout, params)
         rootCard.addView(headerLayout)
 
-        // Hotmail Stock Queue Controller Section
+        // Hotmail Access Queue Controller Section
         val queueSection = buildHotmailQueueSection()
         rootCard.addView(queueSection)
 
-        // 2. Input Row (EditText + Paste Button)
+        // 2. Input Row (Slim Glass EditText + Vector Paste Button)
         val inputRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -453,15 +484,15 @@ class FloatingInboxWindow(
 
         inputEditText = EditText(context).apply {
             hint = "Paste Hotmail: email|pass|token..."
-            setHintTextColor(Color.parseColor("#64748B"))
+            setHintTextColor(theme.textSecondaryInt)
             setTextColor(Color.WHITE)
-            textSize = 12f
-            setPadding(dpToPx(10), dpToPx(8), dpToPx(10), dpToPx(8))
+            textSize = 11.5f
+            setPadding(dpToPx(10), dpToPx(7), dpToPx(10), dpToPx(7))
             val editBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(8).toFloat()
-                setColor(Color.parseColor("#14141B"))
-                setStroke(dpToPx(1f), Color.parseColor("#2E2E3A"))
+                cornerRadius = dpToPx(9).toFloat()
+                setColor(theme.cardInt)
+                setStroke(dpToPx(1f), theme.cardBorderInt)
             }
             background = editBg
             isSingleLine = false
@@ -485,31 +516,21 @@ class FloatingInboxWindow(
             }
         }
 
-        val pasteButton = TextView(context).apply {
-            text = "📋 Paste"
-            setTextColor(Color.WHITE)
-            textSize = 11.5f
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            setPadding(dpToPx(10), dpToPx(8), dpToPx(10), dpToPx(8))
-            val btnBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(8).toFloat()
-                setColor(Color.parseColor("#181820"))
-                setStroke(dpToPx(1.2f), Color.parseColor("#EF4444"))
-            }
-            background = btnBg
+        val pasteButton = createVectorPillButton(
+            iconRes = R.drawable.ic_action_copy,
+            label = "Paste",
+            bgColor = theme.elevatedInt,
+            borderColor = theme.accentBrightInt,
+            iconTint = theme.accentBrightInt
+        ) {
+            pasteFromClipboard()
+            releaseInputFocus()
+        }.apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
                 marginStart = dpToPx(6)
-            }
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                FloatingWindowAnimator.animatePopPulse(this)
-                pasteFromClipboard()
-                releaseInputFocus()
             }
         }
 
@@ -521,12 +542,12 @@ class FloatingInboxWindow(
         emailResultContainer = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6))
+            setPadding(dpToPx(9), dpToPx(6), dpToPx(9), dpToPx(6))
             val pillBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(8).toFloat()
-                setColor(Color.parseColor("#064E3B"))
-                setStroke(dpToPx(1f), Color.parseColor("#059669"))
+                cornerRadius = dpToPx(9).toFloat()
+                setColor(Color.parseColor("#083329"))
+                setStroke(dpToPx(1f), Color.parseColor("#10B981"))
             }
             background = pillBg
             visibility = View.GONE
@@ -547,26 +568,16 @@ class FloatingInboxWindow(
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        copyEmailButton = TextView(context).apply {
-            text = "📋 COPY EMAIL"
-            setTextColor(Color.WHITE)
-            textSize = 10.5f
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            setPadding(dpToPx(8), dpToPx(4), dpToPx(8), dpToPx(4))
-            val copyBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#10B981"))
-            }
-            background = copyBg
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                FloatingWindowAnimator.animatePopPulse(this)
-                latestExtractedEmail?.let { email ->
-                    copyTextToClipboard("Email Address", email)
-                    Toast.makeText(context, "Email Copied: $email", Toast.LENGTH_SHORT).show()
-                }
+        copyEmailButton = createVectorPillButton(
+            iconRes = R.drawable.ic_action_copy,
+            label = "COPY",
+            bgColor = Color.parseColor("#059669"),
+            borderColor = Color.parseColor("#34D399"),
+            iconTint = Color.WHITE
+        ) {
+            latestExtractedEmail?.let { email ->
+                copyTextToClipboard("Email Address", email)
+                Toast.makeText(context, "Email Copied: $email", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -595,16 +606,17 @@ class FloatingInboxWindow(
         }
 
         modeChipButton = TextView(context).apply {
-            text = "Mode: $currentMode ▾"
+            text = "Mode: $currentMode"
             setTextColor(Color.parseColor("#CBD5E1"))
             textSize = 11f
+            typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6))
+            setPadding(dpToPx(9), dpToPx(7), dpToPx(9), dpToPx(7))
             val chipBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(8).toFloat()
-                setColor(Color.parseColor("#1E1E28"))
-                setStroke(dpToPx(1f), Color.parseColor("#3F3F46"))
+                cornerRadius = dpToPx(9).toFloat()
+                setColor(theme.cardInt)
+                setStroke(dpToPx(1f), theme.cardBorderInt)
             }
             background = chipBg
             layoutParams = LinearLayout.LayoutParams(
@@ -620,30 +632,20 @@ class FloatingInboxWindow(
                     "graph" -> "roundcube"
                     else -> "oauth"
                 }
-                text = "Mode: $currentMode ▾"
+                text = "Mode: $currentMode"
             }
         }
 
-        getInboxButton = TextView(context).apply {
-            text = "⚡ GET INBOX"
-            setTextColor(Color.WHITE)
-            textSize = 12.5f
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            setPadding(dpToPx(12), dpToPx(8), dpToPx(12), dpToPx(8))
-            val btnBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(8).toFloat()
-                setColor(Color.parseColor("#181820"))
-                setStroke(dpToPx(1.5f), Color.parseColor("#EF4444"))
-            }
-            background = btnBg
+        getInboxButton = createVectorPillButton(
+            iconRes = R.drawable.ic_bolt_logo,
+            label = "CHECK INBOX",
+            bgColor = theme.elevatedInt,
+            borderColor = theme.accentBrightInt,
+            iconTint = theme.accentBrightInt
+        ) {
+            executeGetInbox()
+        }.apply {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                FloatingWindowAnimator.animatePopPulse(this)
-                executeGetInbox()
-            }
         }
 
         actionRow.addView(modeChipButton)
@@ -708,6 +710,7 @@ class FloatingInboxWindow(
         val extractedEmail = MailDataParser.extractEmail(rawText)
         latestExtractedEmail = extractedEmail
 
+        val suggestedMode = MailDataParser.detectMode(rawText)
         if (!extractedEmail.isNullOrBlank()) {
             emailTextView.text = extractedEmail
             if (emailResultContainer.visibility != View.VISIBLE) {
@@ -715,13 +718,88 @@ class FloatingInboxWindow(
                 FloatingWindowAnimator.animateStepTransition(emailResultContainer)
             }
 
-            val suggestedMode = MailDataParser.detectMode(rawText)
             if (suggestedMode != currentMode) {
                 currentMode = suggestedMode
-                modeChipButton.text = "Mode: $currentMode ▾"
+                modeChipButton.text = "Mode: $currentMode"
             }
         } else {
             emailResultContainer.visibility = View.GONE
+        }
+    }
+
+    private fun createVectorSquareButton(
+        iconRes: Int,
+        bgColor: Int,
+        borderColor: Int,
+        marginEndDp: Int,
+        onClick: () -> Unit
+    ): View {
+        val s = dpToPx(24)
+        return FrameLayout(context).apply {
+            layoutParams = LinearLayout.LayoutParams(s, s).apply {
+                if (marginEndDp > 0) marginEnd = dpToPx(marginEndDp)
+            }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(7).toFloat()
+                setColor(bgColor)
+                setStroke(dpToPx(1f), borderColor)
+            }
+            val iv = android.widget.ImageView(context).apply {
+                setImageResource(iconRes)
+                setColorFilter(Color.WHITE)
+                val pad = dpToPx(5)
+                setPadding(pad, pad, pad, pad)
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            }
+            addView(iv)
+            FloatingWindowAnimator.applyLiquidTouch(this)
+            setOnClickListener { onClick() }
+        }
+    }
+
+    private fun createVectorPillButton(
+        iconRes: Int,
+        label: String,
+        bgColor: Int,
+        borderColor: Int,
+        iconTint: Int,
+        onClick: () -> Unit
+    ): LinearLayout {
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(9), dpToPx(6), dpToPx(9), dpToPx(6))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(8).toFloat()
+                setColor(bgColor)
+                setStroke(dpToPx(1f), borderColor)
+            }
+            val iv = android.widget.ImageView(context).apply {
+                setImageResource(iconRes)
+                setColorFilter(iconTint)
+                val s = dpToPx(13)
+                layoutParams = LinearLayout.LayoutParams(s, s).apply {
+                    marginEnd = dpToPx(5)
+                }
+            }
+            val tv = TextView(context).apply {
+                text = label
+                setTextColor(Color.WHITE)
+                textSize = 10.5f
+                typeface = Typeface.DEFAULT_BOLD
+            }
+            addView(iv)
+            addView(tv)
+            FloatingWindowAnimator.applyLiquidTouch(this)
+            setOnClickListener {
+                FloatingWindowAnimator.animatePopPulse(this)
+                onClick()
+            }
         }
     }
 
@@ -757,7 +835,7 @@ class FloatingInboxWindow(
         loadingBar.visibility = View.VISIBLE
         statusTextView.visibility = View.VISIBLE
         statusTextView.setTextColor(Color.parseColor("#93C5FD"))
-        statusTextView.text = "Fetching inbox from MailGen..."
+        statusTextView.text = "Checking Hotmail Access inbox..."
         getInboxButton.isEnabled = false
         resultsContainer.removeAllViews()
         resultsScrollView.visibility = View.GONE
@@ -778,7 +856,7 @@ class FloatingInboxWindow(
             statusTextView.visibility = View.VISIBLE
             statusTextView.setTextColor(Color.parseColor("#F87171"))
             val errorMsg = result.error ?: "Unable to fetch inbox"
-            statusTextView.text = "❌ Error: $errorMsg"
+            statusTextView.text = "Error: $errorMsg"
             resultsScrollView.visibility = View.GONE
             return
         }
@@ -794,7 +872,7 @@ class FloatingInboxWindow(
 
         statusTextView.visibility = View.VISIBLE
         statusTextView.setTextColor(Color.parseColor("#34D399"))
-        statusTextView.text = "✅ Found ${messages.size} message(s)"
+        statusTextView.text = "Found ${messages.size} message(s)"
         resultsScrollView.visibility = View.VISIBLE
 
         var itemIdx = 0
@@ -819,13 +897,14 @@ class FloatingInboxWindow(
     }
 
     private fun createOtpHighlightCard(otpCode: String, sender: String): View {
+        val theme = com.example.ui.theme.AppThemeManager.current
         val card = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(10).toFloat()
-                setColor(Color.parseColor("#14141B"))
-                setStroke(dpToPx(1.5f), Color.parseColor("#EF4444"))
+                cornerRadius = dpToPx(12).toFloat()
+                setColor(theme.cardInt)
+                setStroke(dpToPx(1.5f), theme.accentBrightInt)
             }
             background = bg
             setPadding(dpToPx(10), dpToPx(8), dpToPx(10), dpToPx(8))
@@ -842,21 +921,31 @@ class FloatingInboxWindow(
             gravity = Gravity.CENTER_VERTICAL
         }
 
+        val keyIv = android.widget.ImageView(context).apply {
+            setImageResource(R.drawable.ic_action_key)
+            setColorFilter(theme.accentBrightInt)
+            val s = dpToPx(14)
+            layoutParams = LinearLayout.LayoutParams(s, s).apply {
+                marginEnd = dpToPx(5)
+            }
+        }
+
         val otpLabel = TextView(context).apply {
-            text = "🔑 VERIFICATION CODE"
-            setTextColor(Color.parseColor("#FCA5A5"))
+            text = "VERIFICATION CODE"
+            setTextColor(theme.accentLightTextInt)
             textSize = 10.5f
             setTypeface(null, Typeface.BOLD)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
         val senderLabel = TextView(context).apply {
-            text = if (sender.isNotBlank()) "from $sender" else "✓ Used/বাতিল"
+            text = if (sender.isNotBlank()) "from $sender" else "Marked Used"
             setTextColor(Color.parseColor("#34D399"))
             textSize = 10f
             setTypeface(null, Typeface.BOLD)
         }
 
+        headerRow.addView(keyIv)
         headerRow.addView(otpLabel)
         headerRow.addView(senderLabel)
         card.addView(headerRow)
@@ -885,67 +974,48 @@ class FloatingInboxWindow(
             setPadding(0, dpToPx(2), 0, 0)
         }
 
-        val copyCodeBtn = TextView(context).apply {
-            text = "📋 COPY OTP"
-            setTextColor(Color.WHITE)
-            textSize = 10.5f
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6))
-            val btnBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#059669"))
+        val copyCodeBtn = createVectorPillButton(
+            iconRes = R.drawable.ic_action_copy,
+            label = "COPY OTP",
+            bgColor = Color.parseColor("#059669"),
+            borderColor = Color.parseColor("#34D399"),
+            iconTint = Color.WHITE
+        ) {
+            copyTextToClipboard("OTP Code", otpCode)
+            val currentMailTarget = activeHotmailItem?.id ?: latestExtractedEmail.orEmpty()
+            if (currentMailTarget.isNotBlank()) {
+                hotmailStockRepo.markMailAsUsed(currentMailTarget)
             }
-            background = btnBg
+            Toast.makeText(context, "OTP Copied ($otpCode) & Mail marked as Used!", Toast.LENGTH_SHORT).show()
+        }.apply {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 marginEnd = dpToPx(4)
             }
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                FloatingWindowAnimator.animatePopPulse(this)
-                copyTextToClipboard("OTP Code", otpCode)
-                val currentMailTarget = activeHotmailItem?.id ?: latestExtractedEmail.orEmpty()
-                if (currentMailTarget.isNotBlank()) {
-                    hotmailStockRepo.markMailAsUsed(currentMailTarget)
-                }
-                Toast.makeText(context, "OTP Copied ($otpCode) & Mail marked as Used!", Toast.LENGTH_SHORT).show()
-            }
         }
 
-        val copyAndNextBtn = TextView(context).apply {
-            text = "⚡ COPY & NEXT ⏭️"
-            setTextColor(Color.WHITE)
-            textSize = 10.5f
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6))
-            val btnBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#181820"))
-                setStroke(dpToPx(1.2f), Color.parseColor("#EF4444"))
+        val copyAndNextBtn = createVectorPillButton(
+            iconRes = R.drawable.ic_action_next,
+            label = "COPY & NEXT",
+            bgColor = theme.elevatedInt,
+            borderColor = theme.accentBrightInt,
+            iconTint = theme.accentBrightInt
+        ) {
+            copyTextToClipboard("OTP Code", otpCode)
+            val next = hotmailStockRepo.markCurrentAsUsedAndGetNext()
+            if (next != null) {
+                loadHotmailItem(next)
+                resultsContainer.removeAllViews()
+                resultsScrollView.visibility = View.GONE
+                statusTextView.visibility = View.VISIBLE
+                statusTextView.setTextColor(Color.parseColor("#34D399"))
+                statusTextView.text = "OTP Copied! Next mail loaded: ${next.email}"
+                Toast.makeText(context, "OTP Copied! Loaded next: ${next.email}", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "OTP Copied! All hotmails in stock are used.", Toast.LENGTH_SHORT).show()
             }
-            background = btnBg
+        }.apply {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 marginStart = dpToPx(4)
-            }
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                FloatingWindowAnimator.animatePopPulse(this)
-                copyTextToClipboard("OTP Code", otpCode)
-                val next = hotmailStockRepo.markCurrentAsUsedAndGetNext()
-                if (next != null) {
-                    loadHotmailItem(next)
-                    resultsContainer.removeAllViews()
-                    resultsScrollView.visibility = View.GONE
-                    statusTextView.visibility = View.VISIBLE
-                    statusTextView.setTextColor(Color.parseColor("#34D399"))
-                    statusTextView.text = "OTP Copied! Next mail loaded: ${next.email}"
-                    Toast.makeText(context, "OTP Copied! Loaded next: ${next.email}", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, "OTP Copied! All hotmails in stock are used.", Toast.LENGTH_SHORT).show()
-                }
             }
         }
 
@@ -957,13 +1027,14 @@ class FloatingInboxWindow(
     }
 
     private fun buildHotmailQueueSection(): View {
+        val theme = com.example.ui.theme.AppThemeManager.current
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(10).toFloat()
-                setColor(Color.parseColor("#13131A"))
-                setStroke(dpToPx(1.2f), Color.parseColor("#DC2626"))
+                cornerRadius = dpToPx(12).toFloat()
+                setColor(theme.cardInt)
+                setStroke(dpToPx(1f), theme.cardBorderInt)
             }
             background = bg
             setPadding(dpToPx(10), dpToPx(8), dpToPx(10), dpToPx(8))
@@ -981,69 +1052,49 @@ class FloatingInboxWindow(
         }
 
         queueStatusTextView = TextView(context).apply {
-            text = "📦 Hotmail Queue: 0 Available"
-            setTextColor(Color.parseColor("#FCA5A5"))
-            textSize = 11.5f
+            text = "Available: 0 • Used: 0"
+            setTextColor(theme.accentLightTextInt)
+            textSize = 11f
             setTypeface(null, Typeface.BOLD)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        val nextBtn = TextView(context).apply {
-            text = "⏭️ Next"
-            setTextColor(Color.WHITE)
-            textSize = 11f
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            setPadding(dpToPx(8), dpToPx(4), dpToPx(8), dpToPx(4))
-            val btnBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#181820"))
-                setStroke(dpToPx(1f), Color.parseColor("#EF4444"))
+        val nextBtn = createVectorPillButton(
+            iconRes = R.drawable.ic_action_next,
+            label = "Next",
+            bgColor = theme.elevatedInt,
+            borderColor = theme.accentBrightInt,
+            iconTint = theme.accentBrightInt
+        ) {
+            val next = hotmailStockRepo.getAndAdvanceNextMail()
+            if (next != null) {
+                loadHotmailItem(next)
+                Toast.makeText(context, "Loaded: ${next.email}", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "No available hotmails! Upload .txt in Setup.", Toast.LENGTH_SHORT).show()
             }
-            background = btnBg
+        }.apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
                 marginEnd = dpToPx(4)
             }
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                FloatingWindowAnimator.animatePopPulse(this)
-                val next = hotmailStockRepo.getAndAdvanceNextMail()
-                if (next != null) {
-                    loadHotmailItem(next)
-                    Toast.makeText(context, "Loaded: ${next.email}", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, "No unused hotmails! Upload .txt in app.", Toast.LENGTH_SHORT).show()
-                }
-            }
         }
 
-        val discardBtn = TextView(context).apply {
-            text = "⏩ Done/Skip"
-            setTextColor(Color.parseColor("#E2E8F0"))
-            textSize = 10.5f
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            setPadding(dpToPx(7), dpToPx(4), dpToPx(7), dpToPx(4))
-            val btnBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#272732"))
-            }
-            background = btnBg
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                FloatingWindowAnimator.animatePopPulse(this)
-                val next = hotmailStockRepo.markCurrentAsUsedAndGetNext()
-                if (next != null) {
-                    loadHotmailItem(next)
-                    Toast.makeText(context, "Marked as Used & loaded next: ${next.email}", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, "All hotmails in stock marked as used!", Toast.LENGTH_SHORT).show()
-                }
+        val discardBtn = createVectorPillButton(
+            iconRes = R.drawable.ic_action_refresh,
+            label = "Skip",
+            bgColor = theme.elevatedInt,
+            borderColor = theme.cardBorderInt,
+            iconTint = theme.textSecondaryInt
+        ) {
+            val next = hotmailStockRepo.markCurrentAsUsedAndGetNext()
+            if (next != null) {
+                loadHotmailItem(next)
+                Toast.makeText(context, "Marked as Used & loaded next: ${next.email}", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "All hotmails in stock marked as used!", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -1053,12 +1104,12 @@ class FloatingInboxWindow(
         container.addView(headerRow)
 
         activeHotmailTextView = TextView(context).apply {
-            text = "Tap ⏭️ Next or upload .txt in app"
+            text = "Tap Next or upload .txt in Setup"
             setTextColor(Color.parseColor("#6EE7B7"))
-            textSize = 12f
+            textSize = 11.5f
             setTypeface(null, Typeface.BOLD)
             isSingleLine = true
-            setPadding(0, dpToPx(4), 0, dpToPx(6))
+            setPadding(0, dpToPx(5), 0, dpToPx(6))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -1071,63 +1122,43 @@ class FloatingInboxWindow(
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        copyFullHotmailButton = TextView(context).apply {
-            text = "📋 COPY FULL DATA"
-            setTextColor(Color.WHITE)
-            textSize = 10.5f
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6))
-            val btnBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#181820"))
-                setStroke(dpToPx(1.2f), Color.parseColor("#EF4444"))
+        copyFullHotmailButton = createVectorPillButton(
+            iconRes = R.drawable.ic_action_copy,
+            label = "COPY FULL",
+            bgColor = theme.elevatedInt,
+            borderColor = theme.accentBrightInt,
+            iconTint = theme.accentBrightInt
+        ) {
+            val fullData = activeHotmailItem?.rawData ?: inputEditText.text.toString().trim()
+            if (fullData.isNotEmpty()) {
+                copyTextToClipboard("Hotmail Full Data", fullData)
+                Toast.makeText(context, "Copied Full Hotmail Data", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "No hotmail data to copy", Toast.LENGTH_SHORT).show()
             }
-            background = btnBg
+        }.apply {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 marginEnd = dpToPx(4)
             }
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                FloatingWindowAnimator.animatePopPulse(this)
-                val fullData = activeHotmailItem?.rawData ?: inputEditText.text.toString().trim()
-                if (fullData.isNotEmpty()) {
-                    copyTextToClipboard("Hotmail Full Data", fullData)
-                    Toast.makeText(context, "Copied Full Hotmail Data", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, "No hotmail data to copy", Toast.LENGTH_SHORT).show()
-                }
-            }
         }
 
-        copyMailOnlyButton = TextView(context).apply {
-            text = "📧 COPY MAIL ONLY"
-            setTextColor(Color.WHITE)
-            textSize = 10.5f
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6))
-            val btnBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#181820"))
-                setStroke(dpToPx(1.2f), Color.parseColor("#EF4444"))
+        copyMailOnlyButton = createVectorPillButton(
+            iconRes = R.drawable.ic_mail_logo,
+            label = "COPY MAIL",
+            bgColor = theme.elevatedInt,
+            borderColor = theme.accentBrightInt,
+            iconTint = theme.accentBrightInt
+        ) {
+            val emailOnly = activeHotmailItem?.email ?: latestExtractedEmail
+            if (!emailOnly.isNullOrBlank()) {
+                copyTextToClipboard("Email Address", emailOnly)
+                Toast.makeText(context, "Copied Email: $emailOnly", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "No email address found", Toast.LENGTH_SHORT).show()
             }
-            background = btnBg
+        }.apply {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 marginStart = dpToPx(4)
-            }
-            FloatingWindowAnimator.applyLiquidTouch(this)
-            setOnClickListener {
-                FloatingWindowAnimator.animatePopPulse(this)
-                val emailOnly = activeHotmailItem?.email ?: latestExtractedEmail
-                if (!emailOnly.isNullOrBlank()) {
-                    copyTextToClipboard("Email Address", emailOnly)
-                    Toast.makeText(context, "Copied Email: $emailOnly", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, "No email address found", Toast.LENGTH_SHORT).show()
-                }
             }
         }
 
@@ -1141,19 +1172,20 @@ class FloatingInboxWindow(
     private fun updateQueueHeader(state: HotmailStockState) {
         if (!::queueStatusTextView.isInitialized) return
         val available = state.availableCount
+        val used = state.usedCount
         val total = state.totalCount
         if (total == 0) {
-            queueStatusTextView.text = "📦 Stock Empty (Upload .txt in app)"
+            queueStatusTextView.text = "Stock Empty (Upload .txt in Setup)"
             activeHotmailTextView.text = "No Hotmail loaded"
         } else {
-            queueStatusTextView.text = "📦 Queue: $available Left / $total Total"
+            queueStatusTextView.text = "Available: $available • Used: $used"
             val current = state.currentLoadedItem
             if (current != null && !current.isUsed) {
-                activeHotmailTextView.text = "📧 ${current.email}"
+                activeHotmailTextView.text = current.email
             } else if (available > 0) {
-                activeHotmailTextView.text = "Tap ⏭️ Next to load next mail"
+                activeHotmailTextView.text = "Tap Next to load next mail"
             } else {
-                activeHotmailTextView.text = "✅ All $total Hotmails used/বাতিল"
+                activeHotmailTextView.text = "All $total Hotmails used"
             }
         }
     }
@@ -1161,7 +1193,7 @@ class FloatingInboxWindow(
     private fun loadHotmailItem(item: HotmailItem) {
         activeHotmailItem = item
         if (::activeHotmailTextView.isInitialized) {
-            activeHotmailTextView.text = "📧 ${item.email}"
+            activeHotmailTextView.text = item.email
             FloatingWindowAnimator.animatePopPulse(activeHotmailTextView)
         }
         if (::inputEditText.isInitialized) {

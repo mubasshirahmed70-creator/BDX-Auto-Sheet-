@@ -153,10 +153,12 @@ object FloatingWindowAnimator {
         rootViewProvider: () -> View?,
         params: WindowManager.LayoutParams,
         iconResId: Int,
-        accentColorHex: String = "#EF4444",
+        accentColorHex: String? = null,
         tintIconWhite: Boolean = true,
         onTapMaximize: () -> Unit
     ): FrameLayout {
+        val theme = com.example.ui.theme.AppThemeManager.current
+        val resolvedAccent = accentColorHex?.let { Color.parseColor(it) } ?: theme.accentBrightInt
         val sizePx = dpToPx(context, 48f)
         val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
 
@@ -168,11 +170,11 @@ object FloatingWindowAnimator {
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 colors = intArrayOf(
-                    Color.parseColor("#1A1A24"),
-                    Color.parseColor("#0A0A0F")
+                    theme.elevatedInt,
+                    theme.bgInt
                 )
                 orientation = GradientDrawable.Orientation.TL_BR
-                setStroke(dpToPx(context, 2.5f), Color.parseColor(accentColorHex))
+                setStroke(dpToPx(context, 2.5f), resolvedAccent)
             }
             background = bg
             elevation = dpToPx(context, 8f).toFloat()

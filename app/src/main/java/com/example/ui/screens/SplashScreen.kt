@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.ui.theme.AppThemeManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -111,15 +112,17 @@ fun SplashScreen(
         onSplashFinished()
     }
 
+    val activeTheme = AppThemeManager.current
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF050508), // Pitch Obsidian Black
-                        Color(0xFF1A060A), // Deep Blood Crimson
-                        Color(0xFF040406)
+                        activeTheme.bgCompose,
+                        activeTheme.accentSoftBgCompose,
+                        activeTheme.bgCompose
                     )
                 )
             ),
@@ -135,8 +138,8 @@ fun SplashScreen(
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
-                            Color(0xFFFF1E42),
-                            Color(0xFF991B1B),
+                            activeTheme.accentBrightCompose,
+                            activeTheme.accentCompose,
                             Color.Transparent
                         )
                     )
@@ -187,7 +190,7 @@ fun SplashScreen(
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 2.5.sp,
-                color = Color(0xFFFF1E42), // Glowing Hacker Red
+                color = activeTheme.accentBrightCompose,
                 modifier = Modifier.alpha(subtitleAlpha.value)
             )
 
@@ -203,8 +206,8 @@ fun SplashScreen(
             ) {
                 LinearProgressIndicator(
                     modifier = Modifier.fillMaxSize(),
-                    color = Color(0xFFFF1E42),
-                    trackColor = Color(0xFF2A0A10)
+                    color = activeTheme.accentBrightCompose,
+                    trackColor = activeTheme.accentSoftBgCompose
                 )
             }
         }

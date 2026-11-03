@@ -62,10 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.AccentAmber
 import com.example.ui.theme.AccentGreen
-import com.example.ui.theme.PrimaryLight
-import com.example.ui.theme.Slate100
-import com.example.ui.theme.Slate200
-import com.example.ui.theme.Slate700
+import com.example.ui.theme.AppThemeManager
 import com.example.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -504,11 +501,13 @@ private fun ActiveRoundBanner(
     columns: List<String>,
     lastColIndex: Int
 ) {
+    val activeTheme by AppThemeManager.currentTheme.collectAsState()
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+            containerColor = activeTheme.accentSoftBgCompose
         ),
+        border = androidx.compose.foundation.BorderStroke(1.dp, activeTheme.accentCompose.copy(alpha = 0.6f)),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 6.dp)
@@ -525,7 +524,7 @@ private fun ActiveRoundBanner(
                     modifier = Modifier
                         .size(10.dp)
                         .clip(CircleShape)
-                        .background(PrimaryLight)
+                        .background(activeTheme.accentBrightCompose)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Column {
@@ -533,7 +532,7 @@ private fun ActiveRoundBanner(
                         text = "Active Round: Row $currentRow",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = Color.White
                     )
                     val nextColName = if (lastColIndex < 0) {
                         columns.firstOrNull() ?: "A"
@@ -544,20 +543,21 @@ private fun ActiveRoundBanner(
                     Text(
                         text = "Next expected: $nextColName",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        color = activeTheme.accentLightTextCompose
                     )
                 }
             }
 
             Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                color = activeTheme.cardCompose.copy(alpha = 0.85f),
+                border = androidx.compose.foundation.BorderStroke(0.8.dp, activeTheme.accentBrightCompose)
             ) {
                 Text(
                     text = "Auto-Expanded",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = activeTheme.accentBrightCompose,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
             }
@@ -567,17 +567,18 @@ private fun ActiveRoundBanner(
 
 @Composable
 private fun TableHeaderRow(columns: List<String>) {
+    val borderColor = MaterialTheme.colorScheme.outline
     Row(
         modifier = Modifier
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .border(0.5.dp, Slate200)
+            .border(0.5.dp, borderColor)
     ) {
         // Top-left corner row index header
         Box(
             modifier = Modifier
                 .width(52.dp)
                 .height(44.dp)
-                .border(0.5.dp, Slate200),
+                .border(0.5.dp, borderColor),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -589,12 +590,12 @@ private fun TableHeaderRow(columns: List<String>) {
         }
 
         // Column Headers
-        columns.forEachIndexed { index, colName ->
+        columns.forEach { colName ->
             Box(
                 modifier = Modifier
                     .width(120.dp)
                     .height(44.dp)
-                    .border(0.5.dp, Slate200)
+                    .border(0.5.dp, borderColor)
                     .padding(horizontal = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -619,30 +620,32 @@ private fun TableDataRow(
     cells: Map<Pair<Int, Int>, String>,
     onCellClick: (colIndex: Int, currentValue: String) -> Unit
 ) {
+    val borderColor = MaterialTheme.colorScheme.outline
+    val primaryColor = MaterialTheme.colorScheme.primary
     val rowBgColor = when {
-        isCurrentRound -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+        isCurrentRound -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
         row % 2 == 0 -> MaterialTheme.colorScheme.surface
-        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
     }
 
     Row(
         modifier = Modifier
             .background(rowBgColor)
-            .border(0.5.dp, Slate200)
+            .border(0.5.dp, borderColor)
     ) {
         // Row Number Cell
         Box(
             modifier = Modifier
                 .width(52.dp)
                 .height(44.dp)
-                .border(0.5.dp, Slate200)
-                .background(if (isCurrentRound) PrimaryLight.copy(alpha = 0.15f) else Color.Transparent),
+                .border(0.5.dp, borderColor)
+                .background(if (isCurrentRound) primaryColor.copy(alpha = 0.18f) else Color.Transparent),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "$row",
                 fontWeight = if (isCurrentRound) FontWeight.ExtraBold else FontWeight.Medium,
-                color = if (isCurrentRound) PrimaryLight else Color(0xFFA1A1AA),
+                color = if (isCurrentRound) primaryColor else MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp
             )
         }
@@ -656,7 +659,7 @@ private fun TableDataRow(
                 modifier = Modifier
                     .width(120.dp)
                     .height(44.dp)
-                    .border(0.5.dp, Slate200)
+                    .border(0.5.dp, borderColor)
                     .clickable { onCellClick(colIdx, value) }
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 contentAlignment = Alignment.CenterStart
@@ -671,7 +674,6 @@ private fun TableDataRow(
                         overflow = TextOverflow.Ellipsis
                     )
                 } else {
-                    // Empty cell placeholder indicator
                     Text(
                         text = "",
                         style = MaterialTheme.typography.bodySmall,
