@@ -163,8 +163,9 @@ class FloatingInboxWindow(
     }
 
     /**
-     * Smoothly morphs between Minimized floating Mail bubble and Maximized MailGen Inbox window
-     * WITHOUT losing loaded Hotmail data or inbox messages!
+     * Smoothly morphs between Minimized floating Mail bubble and Maximized Hotmail Access window
+     * WITHOUT losing loaded Hotmail data or inbox messages, and immediately shrinks WindowManager
+     * bounds so no invisible box can ever block background apps.
      */
     private fun setMinimizedState(minimize: Boolean) {
         val params = windowParams ?: return
@@ -175,57 +176,55 @@ class FloatingInboxWindow(
         if (isMinimized == minimize) return
         isMinimized = minimize
 
+        card.animate().cancel()
+        bubble.animate().cancel()
+        breathingAnimator?.cancel()
+        breathingAnimator = null
+
         if (minimize) {
             releaseInputFocus()
-            card.animate()
-                .scaleX(0.35f)
-                .scaleY(0.35f)
-                .alpha(0f)
-                .setDuration(160L)
+            card.visibility = View.GONE
+            bubble.visibility = View.VISIBLE
+            params.width = WindowManager.LayoutParams.WRAP_CONTENT
+            params.height = WindowManager.LayoutParams.WRAP_CONTENT
+            params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            try {
+                windowManager.updateViewLayout(container, params)
+            } catch (_: Exception) {
+            }
+            bubble.scaleX = 0.35f
+            bubble.scaleY = 0.35f
+            bubble.alpha = 0f
+            bubble.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .alpha(1f)
+                .setDuration(250L)
+                .setInterpolator(OvershootInterpolator(1.8f))
                 .withEndAction {
-                    card.visibility = View.GONE
-                    params.width = WindowManager.LayoutParams.WRAP_CONTENT
-                    params.height = WindowManager.LayoutParams.WRAP_CONTENT
-                    try {
-                        windowManager.updateViewLayout(container, params)
-                    } catch (_: Exception) {
+                    if (isMinimized && isShowing) {
+                        breathingAnimator?.cancel()
+                        breathingAnimator = FloatingWindowAnimator.startBreathingPulse(bubble)
                     }
-                    bubble.visibility = View.VISIBLE
-                    bubble.scaleX = 0.3f
-                    bubble.scaleY = 0.3f
-                    bubble.alpha = 0f
-                    bubble.animate()
-                        .scaleX(1f)
-                        .scaleY(1f)
-                        .alpha(1f)
-                        .setDuration(260L)
-                        .setInterpolator(OvershootInterpolator(1.8f))
-                        .withEndAction {
-                            breathingAnimator?.cancel()
-                            breathingAnimator = FloatingWindowAnimator.startBreathingPulse(bubble)
-                        }
-                        .start()
                 }
                 .start()
         } else {
-            breathingAnimator?.cancel()
-            breathingAnimator = null
             bubble.visibility = View.GONE
+            card.visibility = View.VISIBLE
             params.width = normalWindowWidth
             params.height = WindowManager.LayoutParams.WRAP_CONTENT
             try {
                 windowManager.updateViewLayout(container, params)
             } catch (_: Exception) {
             }
-            card.visibility = View.VISIBLE
-            card.scaleX = 0.55f
-            card.scaleY = 0.55f
+            card.scaleX = 0.65f
+            card.scaleY = 0.65f
             card.alpha = 0f
             card.animate()
                 .scaleX(1f)
                 .scaleY(1f)
                 .alpha(1f)
-                .setDuration(290L)
+                .setDuration(260L)
                 .setInterpolator(OvershootInterpolator(1.16f))
                 .start()
         }
@@ -252,9 +251,11 @@ class FloatingInboxWindow(
     fun releaseInputFocus() {
         val p = windowParams ?: return
         val v = rootContainer ?: return
-        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-        imm?.hideSoftInputFromWindow(inputEditText.windowToken, 0)
-        inputEditText.clearFocus()
+        if (::inputEditText.isInitialized) {
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.hideSoftInputFromWindow(inputEditText.windowToken, 0)
+            inputEditText.clearFocus()
+        }
 
         if ((p.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) == 0) {
             p.flags = p.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
@@ -328,12 +329,19 @@ class FloatingInboxWindow(
         }
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun buildRootContainerView(params: WindowManager.LayoutParams): FrameLayout {
         val container = FrameLayout(context).apply {
             layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
+            setOnTouchListener { _, event ->
+                if (event.action == MotionEvent.ACTION_OUTSIDE) {
+                    releaseInputFocus()
+                }
+                false
+            }
         }
 
         val card = buildWindowView(params)

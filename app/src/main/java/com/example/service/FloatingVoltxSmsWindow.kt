@@ -134,8 +134,7 @@ class FloatingVoltxSmsWindow(
             WindowManager.LayoutParams.WRAP_CONTENT,
             layoutFlag,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -167,7 +166,7 @@ class FloatingVoltxSmsWindow(
             fetchLiveRanges(silent = true)
         } catch (e: Exception) {
             e.printStackTrace()
-            Toast.makeText(context, "Cannot open VOLTX window: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Cannot open BDX SMS window: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -196,7 +195,8 @@ class FloatingVoltxSmsWindow(
 
     /**
      * Smoothly toggles between Minimized floating circle bubble and Maximized compact window
-     * WITHOUT losing any loaded ranges, allocated numbers, or background OTP polling!
+     * WITHOUT losing any loaded ranges, allocated numbers, or background OTP polling,
+     * and immediately shrinks WindowManager bounds so no invisible box can block touches.
      */
     private fun setMinimizedState(minimize: Boolean) {
         val params = windowParams ?: return
@@ -207,56 +207,54 @@ class FloatingVoltxSmsWindow(
         if (isMinimized == minimize) return
         isMinimized = minimize
 
+        card.animate().cancel()
+        bubble.animate().cancel()
+        breathingAnimator?.cancel()
+        breathingAnimator = null
+
         if (minimize) {
-            card.animate()
-                .scaleX(0.35f)
-                .scaleY(0.35f)
-                .alpha(0f)
-                .setDuration(160L)
+            card.visibility = View.GONE
+            bubble.visibility = View.VISIBLE
+            params.width = WindowManager.LayoutParams.WRAP_CONTENT
+            params.height = WindowManager.LayoutParams.WRAP_CONTENT
+            params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            try {
+                windowManager.updateViewLayout(container, params)
+            } catch (_: Exception) {
+            }
+            bubble.scaleX = 0.35f
+            bubble.scaleY = 0.35f
+            bubble.alpha = 0f
+            bubble.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .alpha(1f)
+                .setDuration(250L)
+                .setInterpolator(OvershootInterpolator(1.8f))
                 .withEndAction {
-                    card.visibility = View.GONE
-                    params.width = WindowManager.LayoutParams.WRAP_CONTENT
-                    params.height = WindowManager.LayoutParams.WRAP_CONTENT
-                    try {
-                        windowManager.updateViewLayout(container, params)
-                    } catch (_: Exception) {
+                    if (isMinimized && isShowing) {
+                        breathingAnimator?.cancel()
+                        breathingAnimator = FloatingWindowAnimator.startBreathingPulse(bubble)
                     }
-                    bubble.visibility = View.VISIBLE
-                    bubble.scaleX = 0.3f
-                    bubble.scaleY = 0.3f
-                    bubble.alpha = 0f
-                    bubble.animate()
-                        .scaleX(1f)
-                        .scaleY(1f)
-                        .alpha(1f)
-                        .setDuration(260L)
-                        .setInterpolator(OvershootInterpolator(1.8f))
-                        .withEndAction {
-                            breathingAnimator?.cancel()
-                            breathingAnimator = FloatingWindowAnimator.startBreathingPulse(bubble)
-                        }
-                        .start()
                 }
                 .start()
         } else {
-            breathingAnimator?.cancel()
-            breathingAnimator = null
             bubble.visibility = View.GONE
+            card.visibility = View.VISIBLE
             params.width = normalWindowWidth
             params.height = WindowManager.LayoutParams.WRAP_CONTENT
             try {
                 windowManager.updateViewLayout(container, params)
             } catch (_: Exception) {
             }
-            card.visibility = View.VISIBLE
-            card.scaleX = 0.55f
-            card.scaleY = 0.55f
+            card.scaleX = 0.65f
+            card.scaleY = 0.65f
             card.alpha = 0f
             card.animate()
                 .scaleX(1f)
                 .scaleY(1f)
                 .alpha(1f)
-                .setDuration(290L)
+                .setDuration(260L)
                 .setInterpolator(OvershootInterpolator(1.16f))
                 .start()
         }

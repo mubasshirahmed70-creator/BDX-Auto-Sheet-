@@ -159,7 +159,8 @@ class FloatingFacebookWindow(
 
     /**
      * Smoothly morphs between Minimized floating FB bubble and Maximized Facebook Web window
-     * WITHOUT destroying or reloading the WebView!
+     * WITHOUT destroying or reloading the WebView, and immediately shrinks WindowManager bounds
+     * so no invisible wall can ever block background apps.
      */
     private fun setMinimizedState(minimize: Boolean) {
         val params = windowParams ?: return
@@ -170,57 +171,63 @@ class FloatingFacebookWindow(
         if (isMinimized == minimize) return
         isMinimized = minimize
 
+        card.animate().cancel()
+        bubble.animate().cancel()
+        breathingAnimator?.cancel()
+        breathingAnimator = null
+
         if (minimize) {
             releaseInputFocus()
-            card.animate()
-                .scaleX(0.35f)
-                .scaleY(0.35f)
-                .alpha(0f)
-                .setDuration(160L)
+            // Immediately hide the expanded card and shrink WindowManager bounds to the mini bubble
+            // so an invisible full-size window can NEVER remain on screen blocking background touches!
+            card.visibility = View.GONE
+            bubble.visibility = View.VISIBLE
+            container.layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            params.width = WindowManager.LayoutParams.WRAP_CONTENT
+            params.height = WindowManager.LayoutParams.WRAP_CONTENT
+            params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            try {
+                windowManager.updateViewLayout(container, params)
+            } catch (_: Exception) {
+            }
+
+            bubble.scaleX = 0.35f
+            bubble.scaleY = 0.35f
+            bubble.alpha = 0f
+            bubble.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .alpha(1f)
+                .setDuration(250L)
+                .setInterpolator(OvershootInterpolator(1.8f))
                 .withEndAction {
-                    card.visibility = View.GONE
-                    params.width = WindowManager.LayoutParams.WRAP_CONTENT
-                    params.height = WindowManager.LayoutParams.WRAP_CONTENT
-                    try {
-                        windowManager.updateViewLayout(container, params)
-                    } catch (_: Exception) {
+                    if (isMinimized && isShowing) {
+                        breathingAnimator?.cancel()
+                        breathingAnimator = FloatingWindowAnimator.startBreathingPulse(bubble)
                     }
-                    bubble.visibility = View.VISIBLE
-                    bubble.scaleX = 0.3f
-                    bubble.scaleY = 0.3f
-                    bubble.alpha = 0f
-                    bubble.animate()
-                        .scaleX(1f)
-                        .scaleY(1f)
-                        .alpha(1f)
-                        .setDuration(260L)
-                        .setInterpolator(OvershootInterpolator(1.8f))
-                        .withEndAction {
-                            breathingAnimator?.cancel()
-                            breathingAnimator = FloatingWindowAnimator.startBreathingPulse(bubble)
-                        }
-                        .start()
                 }
                 .start()
         } else {
-            breathingAnimator?.cancel()
-            breathingAnimator = null
             bubble.visibility = View.GONE
+            card.visibility = View.VISIBLE
+            container.layoutParams = ViewGroup.LayoutParams(normalWidth, normalHeight)
             params.width = normalWidth
             params.height = normalHeight
             try {
                 windowManager.updateViewLayout(container, params)
             } catch (_: Exception) {
             }
-            card.visibility = View.VISIBLE
-            card.scaleX = 0.55f
-            card.scaleY = 0.55f
+            card.scaleX = 0.65f
+            card.scaleY = 0.65f
             card.alpha = 0f
             card.animate()
                 .scaleX(1f)
                 .scaleY(1f)
                 .alpha(1f)
-                .setDuration(290L)
+                .setDuration(260L)
                 .setInterpolator(OvershootInterpolator(1.16f))
                 .start()
         }
