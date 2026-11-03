@@ -198,6 +198,7 @@ class FloatingBubbleService : Service() {
             // Minimized View: A compact, circular floating badge showing active row
             val minContainer = createMinimizedPillView(buttonSize, state.currentRow)
             root.addView(minContainer)
+            FloatingWindowAnimator.animatePopPulse(minContainer)
         } else {
             // Expanded View: Drag Grip + Header + Column Buttons
             val expandedContainer = createExpandedView(state, buttonSize)
@@ -240,6 +241,7 @@ class FloatingBubbleService : Service() {
         }
         layout.addView(text)
 
+        FloatingWindowAnimator.applyLiquidTouch(layout)
         layout.setOnClickListener {
             isMinimized = false
             updateOverlayContent(repository.sheetState.value)
@@ -259,6 +261,8 @@ class FloatingBubbleService : Service() {
             background = null
         }
 
+        var animIdx = 0
+
         // 1. Sleek Drag Handle Grip
         val dragGrip = createDragHandleView(isHorizontal)
         mainLayout.addView(dragGrip)
@@ -266,10 +270,12 @@ class FloatingBubbleService : Service() {
         // 2. Control / Minimize / Round Header Button ("R1", "R2"...)
         val headerButton = createHeaderControlView(buttonSizePx, state.currentRow)
         mainLayout.addView(headerButton)
+        FloatingWindowAnimator.animateListItemWave(headerButton, animIdx++)
 
         // 3. Special Tools Hub (⚡ Tools Hub with VOLTX SMS, MailGen, Facebook Web, USA Names)
         val hubToggleButton = createSpecialHubToggleButton(buttonSizePx)
         mainLayout.addView(hubToggleButton)
+        FloatingWindowAnimator.animateListItemWave(hubToggleButton, animIdx++)
 
         if (isToolsMenuExpanded) {
             val voltxBtn = createSpecialVoltxSmsButton(buttonSizePx)
@@ -281,6 +287,11 @@ class FloatingBubbleService : Service() {
             mainLayout.addView(inboxBtn)
             mainLayout.addView(fbBtn)
             mainLayout.addView(nameBtn)
+
+            FloatingWindowAnimator.animateListItemWave(voltxBtn, animIdx++)
+            FloatingWindowAnimator.animateListItemWave(inboxBtn, animIdx++)
+            FloatingWindowAnimator.animateListItemWave(fbBtn, animIdx++)
+            FloatingWindowAnimator.animateListItemWave(nameBtn, animIdx++)
         }
 
         // 4. Column Buttons (Matte Black with Red border; turns Emerald Green with checkmark when pasted in active round)
@@ -305,6 +316,7 @@ class FloatingBubbleService : Service() {
                 isPasted = showAsPasted
             )
             mainLayout.addView(btn)
+            FloatingWindowAnimator.animateListItemWave(btn, animIdx++)
         }
 
         return mainLayout
@@ -365,6 +377,7 @@ class FloatingBubbleService : Service() {
         }
         layout.addView(tv)
 
+        FloatingWindowAnimator.applyLiquidTouch(layout)
         // Clicking the control header toggles minimize
         layout.setOnClickListener {
             isMinimized = true
@@ -413,6 +426,7 @@ class FloatingBubbleService : Service() {
         }
         layout.addView(iv)
 
+        FloatingWindowAnimator.applyLiquidTouch(layout)
         layout.setOnClickListener {
             isToolsMenuExpanded = !isToolsMenuExpanded
             updateOverlayContent(repository.sheetState.value)
@@ -467,6 +481,7 @@ class FloatingBubbleService : Service() {
         }
         layout.addView(iv)
 
+        FloatingWindowAnimator.applyLiquidTouch(layout)
         layout.setOnClickListener {
             toggleFloatingInboxWindow()
             // Auto collapse floating bar back to the single main bubble
@@ -515,6 +530,7 @@ class FloatingBubbleService : Service() {
         }
         layout.addView(iv)
 
+        FloatingWindowAnimator.applyLiquidTouch(layout)
         layout.setOnClickListener {
             toggleFloatingFacebookWindow()
             // Auto collapse floating bar back to the single main bubble
@@ -562,6 +578,7 @@ class FloatingBubbleService : Service() {
         }
         layout.addView(iv)
 
+        FloatingWindowAnimator.applyLiquidTouch(layout)
         layout.setOnClickListener {
             toggleFloatingNameWindow()
             // Auto collapse floating bar back to the single main bubble
@@ -604,8 +621,14 @@ class FloatingBubbleService : Service() {
     }
 
     private fun toggleFloatingInboxWindow() {
-        if (floatingInboxWindow?.isShowing == true) {
-            floatingInboxWindow?.dismiss()
+        val win = floatingInboxWindow
+        if (win?.isShowing == true) {
+            if (win.isCurrentlyMinimized()) {
+                win.maximizeIfMinimized()
+                bringOverlayToFront()
+            } else {
+                win.dismiss()
+            }
         } else {
             if (floatingInboxWindow == null) {
                 floatingInboxWindow = FloatingInboxWindow(this, windowManager) {
@@ -618,8 +641,14 @@ class FloatingBubbleService : Service() {
     }
 
     private fun toggleFloatingFacebookWindow() {
-        if (floatingFacebookWindow?.isShowing == true) {
-            floatingFacebookWindow?.dismiss()
+        val win = floatingFacebookWindow
+        if (win?.isShowing == true) {
+            if (win.isCurrentlyMinimized()) {
+                win.maximizeIfMinimized()
+                bringOverlayToFront()
+            } else {
+                win.dismiss()
+            }
         } else {
             if (floatingFacebookWindow == null) {
                 floatingFacebookWindow = FloatingFacebookWindow(this, windowManager) {
@@ -666,6 +695,7 @@ class FloatingBubbleService : Service() {
         }
         layout.addView(iv)
 
+        FloatingWindowAnimator.applyLiquidTouch(layout)
         layout.setOnClickListener {
             toggleFloatingVoltxSmsWindow()
             // Auto collapse floating bar back to the single main bubble
@@ -678,8 +708,14 @@ class FloatingBubbleService : Service() {
     }
 
     private fun toggleFloatingVoltxSmsWindow() {
-        if (floatingVoltxSmsWindow?.isShowing == true) {
-            floatingVoltxSmsWindow?.dismiss()
+        val win = floatingVoltxSmsWindow
+        if (win?.isShowing == true) {
+            if (win.isCurrentlyMinimized()) {
+                win.maximizeIfMinimized()
+                bringOverlayToFront()
+            } else {
+                win.dismiss()
+            }
         } else {
             if (floatingVoltxSmsWindow == null) {
                 floatingVoltxSmsWindow = FloatingVoltxSmsWindow(this, windowManager) {
@@ -755,7 +791,9 @@ class FloatingBubbleService : Service() {
         }
         layout.addView(tv)
 
+        FloatingWindowAnimator.applyLiquidTouch(layout)
         layout.setOnClickListener {
+            FloatingWindowAnimator.animatePopPulse(layout)
             handleColumnButtonClick(colName)
         }
 

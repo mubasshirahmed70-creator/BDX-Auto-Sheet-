@@ -90,6 +90,7 @@ class FloatingNameWindow(
             windowManager.addView(view, params)
             isShowing = true
             updateButtonLabels()
+            FloatingWindowAnimator.animateWindowOpen(view)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -177,7 +178,9 @@ class FloatingNameWindow(
                 setStroke(dpToPx(1f), Color.parseColor("#EF4444"))
             }
             background = btnBg
+            FloatingWindowAnimator.applyLiquidTouch(this)
             setOnClickListener {
+                FloatingWindowAnimator.animatePopPulse(this)
                 rollNewName()
             }
         }
@@ -198,6 +201,7 @@ class FloatingNameWindow(
                 setColor(Color.parseColor("#DC2626"))
             }
             background = btnBg
+            FloatingWindowAnimator.applyLiquidTouch(this)
             setOnClickListener {
                 dismiss()
             }
@@ -239,6 +243,7 @@ class FloatingNameWindow(
             }
             background = btnBg
             elevation = dpToPx(4).toFloat()
+            FloatingWindowAnimator.applyLiquidTouch(this)
             setOnClickListener {
                 copyFirstNameAndAutoRoll()
             }
@@ -267,6 +272,7 @@ class FloatingNameWindow(
             }
             background = btnBg
             elevation = dpToPx(4).toFloat()
+            FloatingWindowAnimator.applyLiquidTouch(this)
             setOnClickListener {
                 copyLastNameAndAutoRoll()
             }
@@ -281,6 +287,8 @@ class FloatingNameWindow(
     private fun rollNewName() {
         currentPerson = UsaNameGenerator.nextRandomName()
         updateButtonLabels()
+        FloatingWindowAnimator.animatePopPulse(firstNameBtn)
+        FloatingWindowAnimator.animatePopPulse(lastNameBtn)
         triggerHapticPulse()
     }
 
@@ -298,6 +306,7 @@ class FloatingNameWindow(
         val copiedFirst = currentPerson.firstName
         copyToClipboard("USA First Name", copiedFirst)
         triggerHapticPulse()
+        FloatingWindowAnimator.animatePopPulse(firstNameBtn)
 
         // Generate the next unique First Name immediately
         val nextFirst = UsaNameGenerator.nextRandomFirstName()
@@ -307,8 +316,9 @@ class FloatingNameWindow(
         mainHandler.postDelayed({
             if (isShowing) {
                 firstNameBtn.text = currentPerson.firstName
+                FloatingWindowAnimator.animatePopPulse(firstNameBtn)
             }
-        }, 350)
+        }, 320)
 
         Toast.makeText(context, "Copied First Name: $copiedFirst", Toast.LENGTH_SHORT).show()
     }
@@ -321,6 +331,7 @@ class FloatingNameWindow(
         val copiedLast = currentPerson.lastName
         copyToClipboard("USA Last Name", copiedLast)
         triggerHapticPulse()
+        FloatingWindowAnimator.animatePopPulse(lastNameBtn)
 
         // Generate the next unique Last Name immediately
         val nextLast = UsaNameGenerator.nextRandomLastName()
@@ -330,8 +341,9 @@ class FloatingNameWindow(
         mainHandler.postDelayed({
             if (isShowing) {
                 lastNameBtn.text = currentPerson.lastName
+                FloatingWindowAnimator.animatePopPulse(lastNameBtn)
             }
-        }, 350)
+        }, 320)
 
         Toast.makeText(context, "Copied Last Name: $copiedLast", Toast.LENGTH_SHORT).show()
     }

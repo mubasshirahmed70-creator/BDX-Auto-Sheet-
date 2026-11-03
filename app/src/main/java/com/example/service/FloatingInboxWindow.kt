@@ -1,15 +1,16 @@
 package com.example.service
 
+import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
-import android.content.res.ColorStateList
 import android.os.Build
 import android.text.Editable
 import android.text.InputType
@@ -18,18 +19,20 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.animation.OvershootInterpolator
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
-import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import com.example.R
 import com.example.api.MailDataParser
 import com.example.api.MailGenClient
 import com.example.api.MailInboxResult
@@ -41,11 +44,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlin.math.abs
 
 /**
- * Compact, movable floating popup window for MailGen /api/get-inbox.
- * Non-blocking: Allows interacting with underlying phone screen seamlessly!
+ * Compact, movable floating popup window for MailGen /api/get-inbox with:
+ * - Full Minimize (—) & Maximize (1-tap on floating Mail mini-bubble) support.
+ * - Liquid-smooth spring animations, bouncy button physics, and staggered message wave reveals.
  */
 class FloatingInboxWindow(
     private val context: Context,
@@ -54,8 +58,14 @@ class FloatingInboxWindow(
 ) {
     private val scope = CoroutineScope(Dispatchers.Main + Job())
     private var windowParams: WindowManager.LayoutParams? = null
-    private var rootView: View? = null
+    private var rootContainer: FrameLayout? = null
+    private var mainCardView: LinearLayout? = null
+    private var minimizedBubbleView: FrameLayout? = null
+    private var breathingAnimator: ObjectAnimator? = null
     private var observerJob: Job? = null
+
+    private var normalWindowWidth: Int = 0
+    private var isMinimized: Boolean = false
 
     private val hotmailStockRepo = HotmailStockRepository.getInstance(context)
     private var activeHotmailItem: HotmailItem? = null
@@ -82,8 +92,21 @@ class FloatingInboxWindow(
     var isShowing: Boolean = false
         private set
 
+    fun isCurrentlyMinimized(): Boolean = isShowing && isMinimized
+
+    fun maximizeIfMinimized() {
+        if (isShowing && isMinimized) {
+            setMinimizedState(false)
+        }
+    }
+
     fun show() {
-        if (isShowing) return
+        if (isShowing) {
+            if (isMinimized) {
+                setMinimizedState(false)
+            }
+            return
+        }
 
         val layoutFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -94,12 +117,10 @@ class FloatingInboxWindow(
 
         val displayMetrics = context.resources.displayMetrics
         val screenWidth = displayMetrics.widthPixels
-        val windowWidth = (dpToPx(320)).coerceAtMost((screenWidth * 0.90f).toInt())
+        val windowWidth = (dpToPx(316)).coerceAtMost((screenWidth * 0.90f).toInt())
+        normalWindowWidth = windowWidth
+        isMinimized = false
 
-        // SMART DYNAMIC FOCUS:
-        // Default to FLAG_NOT_FOCUSABLE so that keyboard typing in other apps (Chrome, Notes, WhatsApp)
-        // is 100% unrestricted and never blocked!
-        // Focus is only requested dynamically when the user explicitly taps this input box.
         val params = WindowManager.LayoutParams(
             windowWidth,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -110,20 +131,20 @@ class FloatingInboxWindow(
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            // Start on the right side of the screen
             x = (screenWidth - windowWidth - dpToPx(12)).coerceAtLeast(0)
             y = dpToPx(120)
         }
         windowParams = params
 
-        val view = buildWindowView(params)
-        rootView = view
+        val view = buildRootContainerView(params)
+        rootContainer = view
 
         try {
             windowManager.addView(view, params)
             isShowing = true
 
-            // Automatically listen to stock changes
+            mainCardView?.let { FloatingWindowAnimator.animateWindowOpen(it) }
+
             observerJob?.cancel()
             observerJob = scope.launch {
                 hotmailStockRepo.stockState.collect { state ->
@@ -131,7 +152,6 @@ class FloatingInboxWindow(
                 }
             }
 
-            // Automatically load current or first available hotmail from stock
             val initial = hotmailStockRepo.getCurrentOrFirstAvailable()
             if (initial != null) {
                 loadHotmailItem(initial)
@@ -143,11 +163,77 @@ class FloatingInboxWindow(
     }
 
     /**
-     * Dynamically acquires keyboard focus only when user taps the input box.
+     * Smoothly morphs between Minimized floating Mail bubble and Maximized MailGen Inbox window
+     * WITHOUT losing loaded Hotmail data or inbox messages!
      */
+    private fun setMinimizedState(minimize: Boolean) {
+        val params = windowParams ?: return
+        val container = rootContainer ?: return
+        val card = mainCardView ?: return
+        val bubble = minimizedBubbleView ?: return
+
+        if (isMinimized == minimize) return
+        isMinimized = minimize
+
+        if (minimize) {
+            releaseInputFocus()
+            card.animate()
+                .scaleX(0.35f)
+                .scaleY(0.35f)
+                .alpha(0f)
+                .setDuration(160L)
+                .withEndAction {
+                    card.visibility = View.GONE
+                    params.width = WindowManager.LayoutParams.WRAP_CONTENT
+                    params.height = WindowManager.LayoutParams.WRAP_CONTENT
+                    try {
+                        windowManager.updateViewLayout(container, params)
+                    } catch (_: Exception) {
+                    }
+                    bubble.visibility = View.VISIBLE
+                    bubble.scaleX = 0.3f
+                    bubble.scaleY = 0.3f
+                    bubble.alpha = 0f
+                    bubble.animate()
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .alpha(1f)
+                        .setDuration(260L)
+                        .setInterpolator(OvershootInterpolator(1.8f))
+                        .withEndAction {
+                            breathingAnimator?.cancel()
+                            breathingAnimator = FloatingWindowAnimator.startBreathingPulse(bubble)
+                        }
+                        .start()
+                }
+                .start()
+        } else {
+            breathingAnimator?.cancel()
+            breathingAnimator = null
+            bubble.visibility = View.GONE
+            params.width = normalWindowWidth
+            params.height = WindowManager.LayoutParams.WRAP_CONTENT
+            try {
+                windowManager.updateViewLayout(container, params)
+            } catch (_: Exception) {
+            }
+            card.visibility = View.VISIBLE
+            card.scaleX = 0.55f
+            card.scaleY = 0.55f
+            card.alpha = 0f
+            card.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .alpha(1f)
+                .setDuration(290L)
+                .setInterpolator(OvershootInterpolator(1.16f))
+                .start()
+        }
+    }
+
     fun requestInputFocus() {
         val p = windowParams ?: return
-        val v = rootView ?: return
+        val v = rootContainer ?: return
         if ((p.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) != 0) {
             p.flags = p.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
             try {
@@ -163,12 +249,9 @@ class FloatingInboxWindow(
         }
     }
 
-    /**
-     * Releases keyboard focus back to background apps immediately.
-     */
     fun releaseInputFocus() {
         val p = windowParams ?: return
-        val v = rootView ?: return
+        val v = rootContainer ?: return
         val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
         imm?.hideSoftInputFromWindow(inputEditText.windowToken, 0)
         inputEditText.clearFocus()
@@ -185,23 +268,60 @@ class FloatingInboxWindow(
 
     fun dismiss() {
         if (!isShowing) return
+        breathingAnimator?.cancel()
+        breathingAnimator = null
         observerJob?.cancel()
         observerJob = null
         releaseInputFocus()
-        rootView?.let { view ->
+        rootContainer?.let { view ->
             try {
                 windowManager.removeView(view)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
-        rootView = null
+        rootContainer = null
+        mainCardView = null
+        minimizedBubbleView = null
         isShowing = false
+        isMinimized = false
         onCloseListener()
     }
 
+    private fun buildRootContainerView(params: WindowManager.LayoutParams): FrameLayout {
+        val container = FrameLayout(context).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val card = buildWindowView(params)
+        mainCardView = card
+        container.addView(card)
+
+        val minBubble = FloatingWindowAnimator.createMinimizedWindowBubble(
+            context = context,
+            windowManager = windowManager,
+            rootViewProvider = { rootContainer },
+            params = params,
+            iconResId = R.drawable.ic_mail_logo,
+            accentColorHex = "#EF4444",
+            tintIconWhite = true,
+            onTapMaximize = {
+                setMinimizedState(false)
+            }
+        ).apply {
+            visibility = View.GONE
+        }
+        minimizedBubbleView = minBubble
+        container.addView(minBubble)
+
+        return container
+    }
+
     @SuppressLint("ClickableViewAccessibility")
-    private fun buildWindowView(params: WindowManager.LayoutParams): View {
+    private fun buildWindowView(params: WindowManager.LayoutParams): LinearLayout {
         val rootCard = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -213,13 +333,13 @@ class FloatingInboxWindow(
                 setStroke(dpToPx(1.5f), Color.parseColor("#DC2626")) // Crisp Red Border
             }
             background = cardBg
+            elevation = dpToPx(10).toFloat()
             setPadding(dpToPx(12), dpToPx(8), dpToPx(12), dpToPx(12))
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
             )
 
-            // When user taps anywhere on background or outside, immediately release focus to other apps
             setOnTouchListener { _, event ->
                 if (event.action == MotionEvent.ACTION_OUTSIDE || event.action == MotionEvent.ACTION_DOWN) {
                     releaseInputFocus()
@@ -228,7 +348,7 @@ class FloatingInboxWindow(
             }
         }
 
-        // 1. Draggable Header Bar
+        // 1. Draggable Header Bar with Minimize (—) and Close (✕)
         val headerLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -239,7 +359,6 @@ class FloatingInboxWindow(
             )
         }
 
-        // Drag handle pill icon
         val dragHandle = TextView(context).apply {
             text = "::: "
             setTextColor(Color.parseColor("#94A3B8"))
@@ -248,10 +367,9 @@ class FloatingInboxWindow(
             setPadding(dpToPx(2), dpToPx(2), dpToPx(6), dpToPx(2))
         }
 
-        // Crisp vector mail icon
         val mailLogoIv = android.widget.ImageView(context).apply {
-            setImageResource(com.example.R.drawable.ic_mail_logo)
-            setColorFilter(Color.parseColor("#FF2E4C")) // Glowing Hacker Red
+            setImageResource(R.drawable.ic_mail_logo)
+            setColorFilter(Color.parseColor("#EF4444"))
             val logoSize = dpToPx(18)
             val lp = LinearLayout.LayoutParams(logoSize, logoSize).apply {
                 marginEnd = dpToPx(6)
@@ -267,24 +385,54 @@ class FloatingInboxWindow(
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
+        // Minimize Button (—)
+        val minimizeButton = TextView(context).apply {
+            text = "—"
+            setTextColor(Color.WHITE)
+            textSize = 12f
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            val s = dpToPx(24)
+            layoutParams = LinearLayout.LayoutParams(s, s).apply {
+                marginEnd = dpToPx(5)
+            }
+            val bg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(6).toFloat()
+                setColor(Color.parseColor("#181820"))
+                setStroke(dpToPx(1f), Color.parseColor("#EF4444"))
+            }
+            background = bg
+            FloatingWindowAnimator.applyLiquidTouch(this)
+            setOnClickListener {
+                setMinimizedState(true)
+            }
+        }
+
         val closeButton = TextView(context).apply {
             text = "✕"
             setTextColor(Color.WHITE)
-            textSize = 15f
+            textSize = 12f
             setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
-            setPadding(dpToPx(10), dpToPx(4), dpToPx(10), dpToPx(4))
-            val ripple = createRippleDrawable(Color.parseColor("#991B1B"), dpToPx(12))
-            background = ripple
+            val s = dpToPx(24)
+            layoutParams = LinearLayout.LayoutParams(s, s)
+            val bg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(6).toFloat()
+                setColor(Color.parseColor("#DC2626"))
+            }
+            background = bg
+            FloatingWindowAnimator.applyLiquidTouch(this)
             setOnClickListener { dismiss() }
         }
 
         headerLayout.addView(dragHandle)
         headerLayout.addView(mailLogoIv)
         headerLayout.addView(titleText)
+        headerLayout.addView(minimizeButton)
         headerLayout.addView(closeButton)
 
-        // Make Header Draggable anywhere across the phone screen!
         setupDragListener(headerLayout, params)
         rootCard.addView(headerLayout)
 
@@ -312,8 +460,8 @@ class FloatingInboxWindow(
             val editBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(8).toFloat()
-                setColor(Color.parseColor("#0F172A"))
-                setStroke(dpToPx(1f), Color.parseColor("#334155"))
+                setColor(Color.parseColor("#14141B"))
+                setStroke(dpToPx(1f), Color.parseColor("#2E2E3A"))
             }
             background = editBg
             isSingleLine = false
@@ -322,7 +470,6 @@ class FloatingInboxWindow(
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
 
-            // When tapped, request keyboard focus dynamically
             setOnTouchListener { _, event ->
                 if (event.action == MotionEvent.ACTION_UP) {
                     requestInputFocus()
@@ -330,7 +477,6 @@ class FloatingInboxWindow(
                 false
             }
 
-            // When "Done" is pressed on keyboard, immediately release focus back to other apps
             setOnEditorActionListener { _, actionId, _ ->
                 if (actionId == EditorInfo.IME_ACTION_DONE) {
                     releaseInputFocus()
@@ -359,9 +505,10 @@ class FloatingInboxWindow(
             ).apply {
                 marginStart = dpToPx(6)
             }
+            FloatingWindowAnimator.applyLiquidTouch(this)
             setOnClickListener {
+                FloatingWindowAnimator.animatePopPulse(this)
                 pasteFromClipboard()
-                // Keep focus released so soft keyboard doesn't open unnecessarily
                 releaseInputFocus()
             }
         }
@@ -370,7 +517,7 @@ class FloatingInboxWindow(
         inputRow.addView(pasteButton)
         rootCard.addView(inputRow)
 
-        // 3. Extracted Email Display & 1-Tap Copy Box (Initially Hidden until email detected)
+        // 3. Extracted Email Display & 1-Tap Copy Box
         emailResultContainer = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -378,7 +525,7 @@ class FloatingInboxWindow(
             val pillBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(8).toFloat()
-                setColor(Color.parseColor("#064E3B")) // Emerald dark
+                setColor(Color.parseColor("#064E3B"))
                 setStroke(dpToPx(1f), Color.parseColor("#059669"))
             }
             background = pillBg
@@ -410,10 +557,12 @@ class FloatingInboxWindow(
             val copyBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#10B981")) // Emerald bright
+                setColor(Color.parseColor("#10B981"))
             }
             background = copyBg
+            FloatingWindowAnimator.applyLiquidTouch(this)
             setOnClickListener {
+                FloatingWindowAnimator.animatePopPulse(this)
                 latestExtractedEmail?.let { email ->
                     copyTextToClipboard("Email Address", email)
                     Toast.makeText(context, "Email Copied: $email", Toast.LENGTH_SHORT).show()
@@ -425,7 +574,6 @@ class FloatingInboxWindow(
         emailResultContainer.addView(copyEmailButton)
         rootCard.addView(emailResultContainer)
 
-        // TextWatcher to automatically parse and extract email
         inputEditText.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
@@ -455,7 +603,8 @@ class FloatingInboxWindow(
             val chipBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(8).toFloat()
-                setColor(Color.parseColor("#334155"))
+                setColor(Color.parseColor("#1E1E28"))
+                setStroke(dpToPx(1f), Color.parseColor("#3F3F46"))
             }
             background = chipBg
             layoutParams = LinearLayout.LayoutParams(
@@ -464,8 +613,8 @@ class FloatingInboxWindow(
             ).apply {
                 marginEnd = dpToPx(6)
             }
+            FloatingWindowAnimator.applyLiquidTouch(this)
             setOnClickListener {
-                // Cycle modes: oauth -> graph -> roundcube
                 currentMode = when (currentMode) {
                     "oauth" -> "graph"
                     "graph" -> "roundcube"
@@ -490,7 +639,9 @@ class FloatingInboxWindow(
             }
             background = btnBg
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            FloatingWindowAnimator.applyLiquidTouch(this)
             setOnClickListener {
+                FloatingWindowAnimator.animatePopPulse(this)
                 executeGetInbox()
             }
         }
@@ -513,7 +664,7 @@ class FloatingInboxWindow(
         }
         rootCard.addView(loadingBar)
 
-        // 6. Status Text (Error or empty notice)
+        // 6. Status Text
         statusTextView = TextView(context).apply {
             text = ""
             setTextColor(Color.parseColor("#94A3B8"))
@@ -528,7 +679,7 @@ class FloatingInboxWindow(
         }
         rootCard.addView(statusTextView)
 
-        // 7. Results Scroll View (Compact Max Height ~ 200dp)
+        // 7. Results Scroll View
         resultsScrollView = ScrollView(context).apply {
             visibility = View.GONE
             val maxH = dpToPx(200)
@@ -559,9 +710,11 @@ class FloatingInboxWindow(
 
         if (!extractedEmail.isNullOrBlank()) {
             emailTextView.text = extractedEmail
-            emailResultContainer.visibility = View.VISIBLE
+            if (emailResultContainer.visibility != View.VISIBLE) {
+                emailResultContainer.visibility = View.VISIBLE
+                FloatingWindowAnimator.animateStepTransition(emailResultContainer)
+            }
 
-            // Auto adapt mode if user pasted roundcube format
             val suggestedMode = MailDataParser.detectMode(rawText)
             if (suggestedMode != currentMode) {
                 currentMode = suggestedMode
@@ -601,7 +754,6 @@ class FloatingInboxWindow(
             return
         }
 
-        // Show loading state
         loadingBar.visibility = View.VISIBLE
         statusTextView.visibility = View.VISIBLE
         statusTextView.setTextColor(Color.parseColor("#93C5FD"))
@@ -624,7 +776,7 @@ class FloatingInboxWindow(
 
         if (!result.isSuccess) {
             statusTextView.visibility = View.VISIBLE
-            statusTextView.setTextColor(Color.parseColor("#F87171")) // Red
+            statusTextView.setTextColor(Color.parseColor("#F87171"))
             val errorMsg = result.error ?: "Unable to fetch inbox"
             statusTextView.text = "❌ Error: $errorMsg"
             resultsScrollView.visibility = View.GONE
@@ -634,23 +786,21 @@ class FloatingInboxWindow(
         val messages = result.messages
         if (messages.isEmpty()) {
             statusTextView.visibility = View.VISIBLE
-            statusTextView.setTextColor(Color.parseColor("#FBBF24")) // Yellow
+            statusTextView.setTextColor(Color.parseColor("#FBBF24"))
             statusTextView.text = "Inbox checked: 0 messages found."
             resultsScrollView.visibility = View.GONE
             return
         }
 
         statusTextView.visibility = View.VISIBLE
-        statusTextView.setTextColor(Color.parseColor("#34D399")) // Green
+        statusTextView.setTextColor(Color.parseColor("#34D399"))
         statusTextView.text = "✅ Found ${messages.size} message(s)"
         resultsScrollView.visibility = View.VISIBLE
 
-        // Check if ANY message has an OTP or resolved code to feature prominently at the top
+        var itemIdx = 0
         val firstMessageWithCode = messages.firstOrNull { it.getResolvedCode() != null }
         if (firstMessageWithCode != null) {
             val otpCode = firstMessageWithCode.getResolvedCode()!!
-
-            // Auto-discard requirement: "যে হটমেইলগুলোতে ওটিপি এসে যাবে ওইগুলা আর ব্যবহার হবে না ওইগুলা বাতিল হয়ে যাবে।"
             val currentMailTarget = activeHotmailItem?.id ?: latestExtractedEmail.orEmpty()
             if (currentMailTarget.isNotBlank()) {
                 hotmailStockRepo.markMailAsUsed(currentMailTarget)
@@ -658,12 +808,13 @@ class FloatingInboxWindow(
 
             val otpCard = createOtpHighlightCard(otpCode, firstMessageWithCode.from)
             resultsContainer.addView(otpCard)
+            FloatingWindowAnimator.animateListItemWave(otpCard, itemIdx++)
         }
 
-        // Add message cards
         for (msg in messages) {
             val msgCard = createMessageCard(msg)
             resultsContainer.addView(msgCard)
+            FloatingWindowAnimator.animateListItemWave(msgCard, itemIdx++)
         }
     }
 
@@ -693,7 +844,7 @@ class FloatingInboxWindow(
 
         val otpLabel = TextView(context).apply {
             text = "🔑 VERIFICATION CODE"
-            setTextColor(Color.parseColor("#A5B4FC"))
+            setTextColor(Color.parseColor("#FCA5A5"))
             textSize = 10.5f
             setTypeface(null, Typeface.BOLD)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -701,7 +852,7 @@ class FloatingInboxWindow(
 
         val senderLabel = TextView(context).apply {
             text = if (sender.isNotBlank()) "from $sender" else "✓ Used/বাতিল"
-            setTextColor(Color.parseColor("#34D399")) // Bright mint green
+            setTextColor(Color.parseColor("#34D399"))
             textSize = 10f
             setTypeface(null, Typeface.BOLD)
         }
@@ -718,7 +869,7 @@ class FloatingInboxWindow(
 
         val codeText = TextView(context).apply {
             text = otpCode
-            setTextColor(Color.parseColor("#34D399")) // Bright green
+            setTextColor(Color.parseColor("#34D399"))
             textSize = 20f
             setTypeface(null, Typeface.BOLD)
             letterSpacing = 0.08f
@@ -728,7 +879,6 @@ class FloatingInboxWindow(
         codeRow.addView(codeText)
         card.addView(codeRow)
 
-        // OTP Action Buttons: "📋 COPY OTP" and "⚡ COPY & NEXT ⏭️"
         val otpButtonsRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -745,13 +895,15 @@ class FloatingInboxWindow(
             val btnBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#10B981"))
+                setColor(Color.parseColor("#059669"))
             }
             background = btnBg
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 marginEnd = dpToPx(4)
             }
+            FloatingWindowAnimator.applyLiquidTouch(this)
             setOnClickListener {
+                FloatingWindowAnimator.animatePopPulse(this)
                 copyTextToClipboard("OTP Code", otpCode)
                 val currentMailTarget = activeHotmailItem?.id ?: latestExtractedEmail.orEmpty()
                 if (currentMailTarget.isNotBlank()) {
@@ -778,7 +930,9 @@ class FloatingInboxWindow(
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 marginStart = dpToPx(4)
             }
+            FloatingWindowAnimator.applyLiquidTouch(this)
             setOnClickListener {
+                FloatingWindowAnimator.animatePopPulse(this)
                 copyTextToClipboard("OTP Code", otpCode)
                 val next = hotmailStockRepo.markCurrentAsUsedAndGetNext()
                 if (next != null) {
@@ -802,23 +956,13 @@ class FloatingInboxWindow(
         return card
     }
 
-    /**
-     * Hotmail Stock & Queue Controller Section.
-     * Features:
-     * - Queue status badge (e.g. "📦 Hotmail Queue: 24 Available / 50 Total")
-     * - "⏭️ Next" button to load next unused hotmail
-     * - "⏩ Done/Skip" button to mark current as used and load next
-     * - Active hotmail email display
-     * - "📋 COPY FULL DATA" button (copies full line: email|pass or email:pass)
-     * - "📧 COPY MAIL ONLY" button (copies extracted email address only)
-     */
     private fun buildHotmailQueueSection(): View {
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(10).toFloat()
-                colors = intArrayOf(Color.parseColor("#18070B"), Color.parseColor("#0D0D14")) // Deep Hacker Crimson / Obsidian
+                setColor(Color.parseColor("#13131A"))
                 setStroke(dpToPx(1.2f), Color.parseColor("#DC2626"))
             }
             background = bg
@@ -831,7 +975,6 @@ class FloatingInboxWindow(
             }
         }
 
-        // Header Row: Queue badge + Next + Discard
         val headerRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -839,7 +982,7 @@ class FloatingInboxWindow(
 
         queueStatusTextView = TextView(context).apply {
             text = "📦 Hotmail Queue: 0 Available"
-            setTextColor(Color.parseColor("#93C5FD"))
+            setTextColor(Color.parseColor("#FCA5A5"))
             textSize = 11.5f
             setTypeface(null, Typeface.BOLD)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -865,7 +1008,9 @@ class FloatingInboxWindow(
             ).apply {
                 marginEnd = dpToPx(4)
             }
+            FloatingWindowAnimator.applyLiquidTouch(this)
             setOnClickListener {
+                FloatingWindowAnimator.animatePopPulse(this)
                 val next = hotmailStockRepo.getAndAdvanceNextMail()
                 if (next != null) {
                     loadHotmailItem(next)
@@ -886,10 +1031,12 @@ class FloatingInboxWindow(
             val btnBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(6).toFloat()
-                setColor(Color.parseColor("#475569"))
+                setColor(Color.parseColor("#272732"))
             }
             background = btnBg
+            FloatingWindowAnimator.applyLiquidTouch(this)
             setOnClickListener {
+                FloatingWindowAnimator.animatePopPulse(this)
                 val next = hotmailStockRepo.markCurrentAsUsedAndGetNext()
                 if (next != null) {
                     loadHotmailItem(next)
@@ -905,10 +1052,9 @@ class FloatingInboxWindow(
         headerRow.addView(discardBtn)
         container.addView(headerRow)
 
-        // Active Mail text display
         activeHotmailTextView = TextView(context).apply {
             text = "Tap ⏭️ Next or upload .txt in app"
-            setTextColor(Color.parseColor("#6EE7B7")) // Mint green
+            setTextColor(Color.parseColor("#6EE7B7"))
             textSize = 12f
             setTypeface(null, Typeface.BOLD)
             isSingleLine = true
@@ -920,7 +1066,6 @@ class FloatingInboxWindow(
         }
         container.addView(activeHotmailTextView)
 
-        // 2 Dedicated Copy Buttons (Requirement 8 & 9)
         val copyButtonRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -943,7 +1088,9 @@ class FloatingInboxWindow(
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 marginEnd = dpToPx(4)
             }
+            FloatingWindowAnimator.applyLiquidTouch(this)
             setOnClickListener {
+                FloatingWindowAnimator.animatePopPulse(this)
                 val fullData = activeHotmailItem?.rawData ?: inputEditText.text.toString().trim()
                 if (fullData.isNotEmpty()) {
                     copyTextToClipboard("Hotmail Full Data", fullData)
@@ -971,7 +1118,9 @@ class FloatingInboxWindow(
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 marginStart = dpToPx(4)
             }
+            FloatingWindowAnimator.applyLiquidTouch(this)
             setOnClickListener {
+                FloatingWindowAnimator.animatePopPulse(this)
                 val emailOnly = activeHotmailItem?.email ?: latestExtractedEmail
                 if (!emailOnly.isNullOrBlank()) {
                     copyTextToClipboard("Email Address", emailOnly)
@@ -1013,6 +1162,7 @@ class FloatingInboxWindow(
         activeHotmailItem = item
         if (::activeHotmailTextView.isInitialized) {
             activeHotmailTextView.text = "📧 ${item.email}"
+            FloatingWindowAnimator.animatePopPulse(activeHotmailTextView)
         }
         if (::inputEditText.isInitialized) {
             inputEditText.setText(item.rawData)
@@ -1027,8 +1177,8 @@ class FloatingInboxWindow(
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(8).toFloat()
-                setColor(Color.parseColor("#0F172A"))
-                setStroke(dpToPx(1f), Color.parseColor("#334155"))
+                setColor(Color.parseColor("#14141C"))
+                setStroke(dpToPx(1f), Color.parseColor("#2E2E3A"))
             }
             background = bg
             setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6))
@@ -1040,7 +1190,6 @@ class FloatingInboxWindow(
             }
         }
 
-        // Header: From + Date
         val metaRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -1048,7 +1197,7 @@ class FloatingInboxWindow(
 
         val fromText = TextView(context).apply {
             text = if (msg.from.isNotBlank()) msg.from else "Unknown Sender"
-            setTextColor(Color.parseColor("#93C5FD"))
+            setTextColor(Color.parseColor("#FCA5A5"))
             textSize = 11f
             setTypeface(null, Typeface.BOLD)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -1064,7 +1213,6 @@ class FloatingInboxWindow(
         metaRow.addView(dateText)
         card.addView(metaRow)
 
-        // Subject
         if (msg.subject.isNotBlank()) {
             val subjectText = TextView(context).apply {
                 text = msg.subject
@@ -1076,7 +1224,6 @@ class FloatingInboxWindow(
             card.addView(subjectText)
         }
 
-        // Code if distinct
         val code = msg.getResolvedCode()
         if (code != null) {
             val codeRow = LinearLayout(context).apply {
@@ -1103,7 +1250,9 @@ class FloatingInboxWindow(
                     setColor(Color.parseColor("#059669"))
                 }
                 background = b
+                FloatingWindowAnimator.applyLiquidTouch(this)
                 setOnClickListener {
+                    FloatingWindowAnimator.animatePopPulse(this)
                     copyTextToClipboard("Code", code)
                     Toast.makeText(context, "Copied: $code", Toast.LENGTH_SHORT).show()
                 }
@@ -1113,7 +1262,6 @@ class FloatingInboxWindow(
             card.addView(codeRow)
         }
 
-        // Preview snippet
         val preview = msg.message
         if (preview.isNotBlank()) {
             val previewText = TextView(context).apply {
@@ -1130,10 +1278,12 @@ class FloatingInboxWindow(
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setupDragListener(dragView: View, params: WindowManager.LayoutParams) {
+        val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
         var initialX = 0
         var initialY = 0
         var initialTouchX = 0f
         var initialTouchY = 0f
+        var isDragging = false
 
         dragView.setOnTouchListener { _, event ->
             when (event.action) {
@@ -1143,18 +1293,28 @@ class FloatingInboxWindow(
                     initialY = params.y
                     initialTouchX = event.rawX
                     initialTouchY = event.rawY
+                    isDragging = false
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = (event.rawX - initialTouchX).toInt()
                     val dy = (event.rawY - initialTouchY).toInt()
-                    params.x = initialX + dx
-                    params.y = initialY + dy
-                    try {
-                        rootView?.let { windowManager.updateViewLayout(it, params) }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                    if (abs(dx) > touchSlop || abs(dy) > touchSlop) {
+                        isDragging = true
                     }
+                    if (isDragging) {
+                        params.x = initialX + dx
+                        params.y = initialY + dy
+                        try {
+                            rootContainer?.let { windowManager.updateViewLayout(it, params) }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    isDragging = false
                     true
                 }
                 else -> false
