@@ -144,7 +144,10 @@ object FloatingWindowAnimator {
 
     /**
      * Creates a sleek, glowing circular minimized bubble for a special floating window.
-     * Supports both smooth dragging across the screen AND 1-tap maximizing back to the full window!
+     * Supports:
+     * 1. Smooth dragging across the screen.
+     * 2. Individual Edge-Hide (drag to left or right screen edge to tuck into a slim glowing edge tab).
+     * 3. 1-Tap on the edge tab to pop back out into the circular bubble, or 1-Tap on the circular bubble to maximize!
      */
     @SuppressLint("ClickableViewAccessibility")
     fun createMinimizedWindowBubble(
@@ -160,34 +163,19 @@ object FloatingWindowAnimator {
         val theme = com.example.ui.theme.AppThemeManager.current
         val resolvedAccent = accentColorHex?.let { Color.parseColor(it) } ?: theme.accentBrightInt
         val sizePx = dpToPx(context, 48f)
+        val tabWidthPx = dpToPx(context, 16f)
+        val tabHeightPx = dpToPx(context, 46f)
         val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
 
+        // 0 = normal circular bubble, -1 = hidden on left edge, 1 = hidden on right edge
+        var edgeSide = 0
+
         val bubble = FrameLayout(context).apply {
-            layoutParams = FrameLayout.LayoutParams(sizePx, sizePx).apply {
-                val m = dpToPx(context, 4f)
-                setMargins(m, m, m, m)
-            }
-            val bg = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                colors = intArrayOf(
-                    theme.elevatedInt,
-                    theme.bgInt
-                )
-                orientation = GradientDrawable.Orientation.TL_BR
-                setStroke(dpToPx(context, 2.5f), resolvedAccent)
-            }
-            background = bg
             elevation = dpToPx(context, 8f).toFloat()
         }
 
         val iconView = ImageView(context).apply {
-            setImageResource(iconResId)
-            if (tintIconWhite) {
-                setColorFilter(Color.WHITE)
-            }
             scaleType = ImageView.ScaleType.FIT_CENTER
-            val pad = (sizePx * 0.22f).toInt()
-            setPadding(pad, pad, pad, pad)
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -196,6 +184,62 @@ object FloatingWindowAnimator {
         }
         bubble.addView(iconView)
 
+        fun applyVisualMode(side: Int) {
+            edgeSide = side
+            if (side == 0) {
+                bubble.layoutParams = FrameLayout.LayoutParams(sizePx, sizePx).apply {
+                    val m = dpToPx(context, 4f)
+                    setMargins(m, m, m, m)
+                }
+                bubble.background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    colors = intArrayOf(theme.elevatedInt, theme.bgInt)
+                    orientation = GradientDrawable.Orientation.TL_BR
+                    setStroke(dpToPx(context, 2.5f), resolvedAccent)
+                }
+                iconView.setImageResource(iconResId)
+                if (tintIconWhite) {
+                    iconView.setColorFilter(Color.WHITE)
+                } else {
+                    iconView.clearColorFilter()
+                }
+                val pad = (sizePx * 0.22f).toInt()
+                iconView.setPadding(pad, pad, pad, pad)
+            } else {
+                val r = dpToPx(context, 10f).toFloat()
+                bubble.layoutParams = FrameLayout.LayoutParams(tabWidthPx, tabHeightPx)
+                bubble.background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadii = if (side < 0) {
+                        // Left screen edge: round right corners
+                        floatArrayOf(0f, 0f, r, r, r, r, 0f, 0f)
+                    } else {
+                        // Right screen edge: round left corners
+                        floatArrayOf(r, r, 0f, 0f, 0f, 0f, r, r)
+                    }
+                    setColor(
+                        Color.argb(
+                            215,
+                            Color.red(theme.bgInt),
+                            Color.green(theme.bgInt),
+                            Color.blue(theme.bgInt)
+                        )
+                    )
+                    setStroke(dpToPx(context, 1.8f), resolvedAccent)
+                }
+                iconView.setImageResource(
+                    if (side < 0) com.example.R.drawable.ic_nav_forward
+                    else com.example.R.drawable.ic_nav_back
+                )
+                iconView.setColorFilter(resolvedAccent)
+                val hPad = dpToPx(context, 1.5f)
+                val vPad = dpToPx(context, 12f)
+                iconView.setPadding(hPad, vPad, hPad, vPad)
+            }
+        }
+
+        applyVisualMode(0)
+
         var initialX = 0
         var initialY = 0
         var downRawX = 0f
@@ -203,6 +247,7 @@ object FloatingWindowAnimator {
         var isDragging = false
 
         bubble.setOnTouchListener { v, event ->
+            val screenWidth = context.resources.displayMetrics.widthPixels
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     initialX = params.x
@@ -224,6 +269,9 @@ object FloatingWindowAnimator {
                         isDragging = true
                     }
                     if (isDragging) {
+                        if (edgeSide != 0 && abs(dx) > dpToPx(context, 14f)) {
+                            applyVisualMode(0)
+                        }
                         params.x = initialX + dx
                         params.y = initialY + dy
                         rootViewProvider()?.let { root ->
@@ -243,7 +291,52 @@ object FloatingWindowAnimator {
                         .setInterpolator(OvershootInterpolator(2.2f))
                         .start()
                     if (!isDragging) {
-                        onTapMaximize()
+                        if (edgeSide != 0) {
+                            // 1-Tap on Edge Peek Tab -> unhide back into circular minimized bubble
+                            val wasLeft = edgeSide < 0
+                            applyVisualMode(0)
+                            params.x = if (wasLeft) {
+                                dpToPx(context, 12f)
+                            } else {
+                                (screenWidth - sizePx - dpToPx(context, 12f)).coerceAtLeast(0)
+                            }
+                            rootViewProvider()?.let { root ->
+                                try {
+                                    windowManager.updateViewLayout(root, params)
+                                } catch (_: Exception) {
+                                }
+                            }
+                            animatePopPulse(bubble)
+                        } else {
+                            onTapMaximize()
+                        }
+                    } else {
+                        // Drag finished: check if dragged to Left or Right Screen Edge to hide
+                        val edgeSnapMargin = dpToPx(context, 10f)
+                        when {
+                            params.x <= edgeSnapMargin -> {
+                                applyVisualMode(-1)
+                                params.x = 0
+                                rootViewProvider()?.let { root ->
+                                    try {
+                                        windowManager.updateViewLayout(root, params)
+                                    } catch (_: Exception) {
+                                    }
+                                }
+                                animatePopPulse(bubble)
+                            }
+                            params.x + sizePx >= screenWidth - edgeSnapMargin -> {
+                                applyVisualMode(1)
+                                params.x = (screenWidth - tabWidthPx).coerceAtLeast(0)
+                                rootViewProvider()?.let { root ->
+                                    try {
+                                        windowManager.updateViewLayout(root, params)
+                                    } catch (_: Exception) {
+                                    }
+                                }
+                                animatePopPulse(bubble)
+                            }
+                        }
                     }
                     true
                 }

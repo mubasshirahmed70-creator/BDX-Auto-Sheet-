@@ -35,6 +35,32 @@ data class VoltxServiceRange(
                 sid.contains("meta", ignoreCase = true)
 }
 
+data class VoltxConsoleRangeItem(
+    val rawRange: String,
+    val cleanRid: String,
+    val resolvedService: String,
+    val hitCount: Int,
+    val lastHitTime: Long,
+    val sampleMessage: String,
+    val countryLabel: String
+) {
+    val isFacebook: Boolean
+        get() = resolvedService.equals("FACEBOOK", ignoreCase = true)
+
+    val isInstagram: Boolean
+        get() = resolvedService.equals("INSTAGRAM", ignoreCase = true)
+
+    val serviceShortBadge: String
+        get() = when {
+            isFacebook -> "FB"
+            isInstagram -> "IG"
+            resolvedService.equals("WHATSAPP", ignoreCase = true) -> "WA"
+            resolvedService.equals("TELEGRAM", ignoreCase = true) -> "TG"
+            resolvedService.equals("GOOGLE", ignoreCase = true) -> "GOOG"
+            else -> resolvedService.take(4).uppercase()
+        }
+}
+
 data class VoltxOtpItem(
     val otpId: String,
     val number: String,
@@ -388,19 +414,65 @@ object VoltxSmsClient {
     }
 
     /**
-     * 2. GET /liveaccess
-     * Fetches active services and their hit ranges, sorted with Facebook first!
+     * Inspects both the `message` body and `sid` from `/console` hits so that
+     * Instagram messages (e.g. "824314 is your Instagram code. Don't share it.")
+     * tagged by the server with `"sid": "FACEBOOK"` are accurately separated as `"INSTAGRAM"`.
      */
-    suspend fun getLiveAccessRanges(
+    fun resolveServiceFromConsoleHit(rawSid: String, message: String): String {
+        val msg = message.trim()
+        val sid = rawSid.trim()
+
+        // 1. Check message content first so Instagram codes inside FACEBOOK sid are separated
+        if (msg.contains("instagram", ignoreCase = true) ||
+            Regex("""\bIG[-\s:]?\d{4,8}\b""", RegexOption.IGNORE_CASE).containsMatchIn(msg)
+        ) {
+            return "INSTAGRAM"
+        }
+        if (msg.contains("whatsapp", ignoreCase = true)) {
+            return "WHATSAPP"
+        }
+        if (msg.contains("facebook", ignoreCase = true) ||
+            Regex("""\bFB-\d{4,8}\b""", RegexOption.IGNORE_CASE).containsMatchIn(msg)
+        ) {
+            return "FACEBOOK"
+        }
+        if (msg.contains("telegram", ignoreCase = true)) {
+            return "TELEGRAM"
+        }
+        if (msg.contains("google", ignoreCase = true) ||
+            Regex("""\bG-\d{4,8}\b""", RegexOption.IGNORE_CASE).containsMatchIn(msg)
+        ) {
+            return "GOOGLE"
+        }
+
+        // 2. Fallback to sid if message didn't specify a conflicting brand
+        return when {
+            sid.contains("instagram", ignoreCase = true) || sid.equals("ig", ignoreCase = true) -> "INSTAGRAM"
+            sid.contains("facebook", ignoreCase = true) || sid.equals("fb", ignoreCase = true) || sid.contains("meta", ignoreCase = true) -> "FACEBOOK"
+            sid.contains("whatsapp", ignoreCase = true) || sid.equals("wa", ignoreCase = true) -> "WHATSAPP"
+            sid.contains("telegram", ignoreCase = true) || sid.equals("tg", ignoreCase = true) -> "TELEGRAM"
+            sid.contains("google", ignoreCase = true) -> "GOOGLE"
+            sid.isNotBlank() -> sid.uppercase()
+            else -> "OTHER"
+        }
+    }
+
+    /**
+     * 2. GET /console
+     * Fetches the global live feed of recent hits (last 15 minutes) from `/console`,
+     * separates Instagram hits from Facebook hits by inspecting the `message` text,
+     * groups duplicate ranges with hit counts, and sorts true Facebook ranges to the top!
+     */
+    suspend fun getConsoleRanges(
         apiKey: String
-    ): VoltxApiResult<List<VoltxServiceRange>> = withContext(Dispatchers.IO) {
+    ): VoltxApiResult<List<VoltxConsoleRangeItem>> = withContext(Dispatchers.IO) {
         val cleanKey = apiKey.trim()
         if (cleanKey.isEmpty()) {
             return@withContext VoltxApiResult.Error(-1, "API Key (mauthapi) সেট করা নেই!")
         }
 
         val request = Request.Builder()
-            .url("$BASE_URL/liveaccess")
+            .url("$BASE_URL/console")
             .get()
             .header("mauthapi", cleanKey)
             .header("Accept", "application/json")
@@ -422,47 +494,84 @@ object VoltxSmsClient {
                 if (metaCode != 200 || dataObj == null) {
                     return@withContext VoltxApiResult.Error(
                         metaCode,
-                        message.ifBlank { "Error loading ranges (Code $metaCode)" }
+                        message.ifBlank { "Error loading console ranges (Code $metaCode)" }
                     )
                 }
 
-                val servicesArray = dataObj.optJSONArray("services")
-                val resultList = mutableListOf<VoltxServiceRange>()
-                if (servicesArray != null) {
-                    for (i in 0 until servicesArray.length()) {
-                        val item = servicesArray.optJSONObject(i) ?: continue
-                        val sid = item.optString("sid", "Unknown")
-                        val lastAt = item.optLong("last_at", 0L)
-                        val rangesArr = item.optJSONArray("ranges")
-                        val ranges = mutableListOf<String>()
-                        if (rangesArr != null) {
-                            for (j in 0 until rangesArr.length()) {
-                                val elem = rangesArr.opt(j)
-                                if (elem is JSONObject) {
-                                    val r = elem.optString("range", elem.optString("rid", "")).trim()
-                                    val c = elem.optString("country", elem.optString("cn", "")).trim()
-                                    if (r.isNotEmpty()) {
-                                        ranges.add(r)
-                                        if (c.isNotEmpty()) {
-                                            learnedRangeCountryMap[cleanRangeId(r)] = c
-                                        }
-                                    }
-                                } else {
-                                    val r = rangesArr.optString(j, "").trim()
-                                    if (r.isNotEmpty()) ranges.add(r)
+                val hitsArray = dataObj.optJSONArray("hits")
+                // Map key: "$resolvedService|$cleanRid"
+                data class MutableGroup(
+                    val rawRange: String,
+                    val cleanRid: String,
+                    val resolvedService: String,
+                    var hitCount: Int,
+                    var lastHitTime: Long,
+                    var sampleMessage: String
+                )
+
+                val grouped = LinkedHashMap<String, MutableGroup>()
+
+                if (hitsArray != null) {
+                    for (i in 0 until hitsArray.length()) {
+                        val hitObj = hitsArray.optJSONObject(i) ?: continue
+                        val rawRange = hitObj.optString("range", hitObj.optString("rid", "")).trim()
+                        val cleanRid = cleanRangeId(rawRange)
+                        if (cleanRid.isEmpty()) continue
+
+                        val rawSid = hitObj.optString("sid", "Unknown")
+                        val hitMsg = hitObj.optString("message", "")
+                        val hitTime = hitObj.optLong("time", 0L)
+                        val countryHint = hitObj.optString("country", hitObj.optString("cn", "")).trim()
+                        if (countryHint.isNotEmpty()) {
+                            learnedRangeCountryMap[cleanRid] = countryHint
+                        }
+
+                        val resolvedService = resolveServiceFromConsoleHit(rawSid, hitMsg)
+                        val groupKey = "$resolvedService|$cleanRid"
+
+                        val existing = grouped[groupKey]
+                        if (existing == null) {
+                            grouped[groupKey] = MutableGroup(
+                                rawRange = rawRange.ifBlank { cleanRid },
+                                cleanRid = cleanRid,
+                                resolvedService = resolvedService,
+                                hitCount = 1,
+                                lastHitTime = hitTime,
+                                sampleMessage = hitMsg
+                            )
+                        } else {
+                            existing.hitCount += 1
+                            if (hitTime > existing.lastHitTime) {
+                                existing.lastHitTime = hitTime
+                                if (hitMsg.isNotBlank()) {
+                                    existing.sampleMessage = hitMsg
                                 }
                             }
-                        }
-                        if (ranges.isNotEmpty()) {
-                            resultList.add(VoltxServiceRange(sid = sid, lastAt = lastAt, ranges = ranges))
                         }
                     }
                 }
 
-                // Sort so Facebook services appear at the very top, then by most recent lastAt
+                val resultList = grouped.values.map { grp ->
+                    VoltxConsoleRangeItem(
+                        rawRange = grp.rawRange,
+                        cleanRid = grp.cleanRid,
+                        resolvedService = grp.resolvedService,
+                        hitCount = grp.hitCount,
+                        lastHitTime = grp.lastHitTime,
+                        sampleMessage = grp.sampleMessage,
+                        countryLabel = detectCountryFromRange(grp.rawRange)
+                    )
+                }
+
+                // Sort order:
+                // 1. True FACEBOOK ranges first
+                // 2. INSTAGRAM ranges second
+                // 3. Most recent hit time & hit count
                 val sorted = resultList.sortedWith(
-                    compareByDescending<VoltxServiceRange> { it.isFacebook }
-                        .thenByDescending { it.lastAt }
+                    compareByDescending<VoltxConsoleRangeItem> { it.isFacebook }
+                        .thenByDescending { it.isInstagram }
+                        .thenByDescending { it.lastHitTime }
+                        .thenByDescending { it.hitCount }
                 )
 
                 VoltxApiResult.Success(sorted, message)

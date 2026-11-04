@@ -53,6 +53,8 @@ class FloatingBubbleService : Service() {
     private var stateCollectJob: Job? = null
 
     private var isMinimized = true
+    // 0 = normal visible bubble, -1 = hidden on left edge, 1 = hidden on right edge
+    private var edgeHiddenSide = 0
     private var isRoundCompleteReset = false
     private var lastProcessedRowForRoundReset = -1
     private val roundCompleteHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -154,18 +156,30 @@ class FloatingBubbleService : Service() {
             WindowManager.LayoutParams.WRAP_CONTENT,
             layoutFlag,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            // Start on the right side of the screen
-            x = (screenWidth - dpToPx(64)).coerceAtLeast(0)
+            // Start on the right side of the screen (slightly inset so it starts visible)
+            x = (screenWidth - dpToPx(66)).coerceAtLeast(0)
             y = dpToPx(160)
         }
         windowParams = params
 
-        val root = DraggableOverlayLayout(this, windowManager, params)
+        val root = DraggableOverlayLayout(
+            context = this,
+            windowManager = windowManager,
+            layoutParams = params,
+            onDragMoved = { dx ->
+                if (edgeHiddenSide != 0 && abs(dx) > dpToPx(16)) {
+                    edgeHiddenSide = 0
+                    updateOverlayContent(repository.sheetState.value)
+                }
+            },
+            onDragFinished = {
+                handleOverlayDragFinished()
+            }
+        )
         overlayRootView = root
 
         try {
@@ -224,10 +238,133 @@ class FloatingBubbleService : Service() {
         }
     }
 
+    private fun handleOverlayDragFinished() {
+        val params = windowParams ?: return
+        val root = overlayRootView ?: return
+        val screenWidth = resources.displayMetrics.widthPixels
+        val currentWidth = root.width.takeIf { it > 0 } ?: dpToPx(52)
+        val edgeSnapMargin = dpToPx(8)
+        val tabWidthPx = dpToPx(16)
+
+        when {
+            params.x <= edgeSnapMargin -> {
+                // Hide to Left Screen Edge
+                isMinimized = true
+                isToolsMenuExpanded = false
+                edgeHiddenSide = -1
+                params.x = 0
+                updateOverlayContent(repository.sheetState.value)
+                try {
+                    windowManager.updateViewLayout(root, params)
+                } catch (_: Exception) {
+                }
+            }
+            params.x + currentWidth >= screenWidth - edgeSnapMargin -> {
+                // Hide to Right Screen Edge
+                isMinimized = true
+                isToolsMenuExpanded = false
+                edgeHiddenSide = 1
+                params.x = (screenWidth - tabWidthPx).coerceAtLeast(0)
+                updateOverlayContent(repository.sheetState.value)
+                try {
+                    windowManager.updateViewLayout(root, params)
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
     private fun createMinimizedPillView(sizePx: Int, currentRow: Int): View {
         val theme = com.example.ui.theme.AppThemeManager.current
         val structure = com.example.ui.theme.AppThemeManager.currentStructurePreset
         val useGlassDock = structure.usesGlassDockOverlay
+
+        // If hidden on the Left (-1) or Right (1) edge of the screen, render a Slim Translucent Edge Peek Tab
+        if (edgeHiddenSide != 0) {
+            val tabWidthPx = dpToPx(16)
+            val tabHeightPx = dpToPx(50)
+            val r = dpToPx(10).toFloat()
+
+            val edgeTab = FrameLayout(this).apply {
+                layoutParams = FrameLayout.LayoutParams(tabWidthPx, tabHeightPx)
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadii = if (edgeHiddenSide < 0) {
+                        // Docked on Left Edge -> round right corners
+                        floatArrayOf(0f, 0f, r, r, r, r, 0f, 0f)
+                    } else {
+                        // Docked on Right Edge -> round left corners
+                        floatArrayOf(r, r, 0f, 0f, 0f, 0f, r, r)
+                    }
+                    setColor(
+                        Color.argb(
+                            215,
+                            Color.red(theme.bgInt),
+                            Color.green(theme.bgInt),
+                            Color.blue(theme.bgInt)
+                        )
+                    )
+                    setStroke(dpToPx(1.8f), theme.accentBrightInt)
+                }
+                elevation = dpToPx(10).toFloat()
+            }
+
+            val arrowIv = android.widget.ImageView(this).apply {
+                setImageResource(
+                    if (edgeHiddenSide < 0) R.drawable.ic_nav_forward
+                    else R.drawable.ic_nav_back
+                )
+                setColorFilter(theme.accentBrightInt)
+                scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+                val hPad = dpToPx(1.5f)
+                val vPad = dpToPx(13)
+                setPadding(hPad, vPad, hPad, vPad)
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    Gravity.CENTER
+                )
+            }
+            edgeTab.addView(arrowIv)
+
+            // Tiny live dot at top of edge tab
+            val dotView = View(this).apply {
+                val dSize = dpToPx(5)
+                layoutParams = FrameLayout.LayoutParams(dSize, dSize).apply {
+                    gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                    topMargin = dpToPx(5)
+                }
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Color.parseColor("#10B981"))
+                }
+            }
+            edgeTab.addView(dotView)
+
+            FloatingWindowAnimator.applyLiquidTouch(edgeTab)
+            edgeTab.setOnClickListener {
+                // 1-Tap on Edge Peek Tab -> unhide back into R1 bubble
+                val wasLeft = edgeHiddenSide < 0
+                edgeHiddenSide = 0
+                val screenWidth = resources.displayMetrics.widthPixels
+                windowParams?.let { p ->
+                    p.x = if (wasLeft) {
+                        dpToPx(14)
+                    } else {
+                        (screenWidth - sizePx - dpToPx(14)).coerceAtLeast(0)
+                    }
+                    overlayRootView?.let { root ->
+                        try {
+                            windowManager.updateViewLayout(root, p)
+                        } catch (_: Exception) {
+                        }
+                    }
+                }
+                updateOverlayContent(repository.sheetState.value)
+            }
+
+            return edgeTab
+        }
 
         val layout = FrameLayout(this).apply {
             val lp = FrameLayout.LayoutParams(sizePx, sizePx).apply {
@@ -988,7 +1125,9 @@ class FloatingBubbleService : Service() {
 class DraggableOverlayLayout(
     context: Context,
     private val windowManager: WindowManager,
-    private val layoutParams: WindowManager.LayoutParams
+    private val layoutParams: WindowManager.LayoutParams,
+    private val onDragMoved: (Int) -> Unit = {},
+    private val onDragFinished: () -> Unit = {}
 ) : FrameLayout(context) {
 
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
@@ -1069,6 +1208,7 @@ class DraggableOverlayLayout(
             MotionEvent.ACTION_MOVE -> {
                 val dx = (ev.rawX - initialTouchX).toInt()
                 val dy = (ev.rawY - initialTouchY).toInt()
+                onDragMoved(dx)
                 layoutParams.x = initialX + dx
                 layoutParams.y = initialY + dy
                 try {
@@ -1080,6 +1220,7 @@ class DraggableOverlayLayout(
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 isDragging = false
+                onDragFinished()
                 return true
             }
         }

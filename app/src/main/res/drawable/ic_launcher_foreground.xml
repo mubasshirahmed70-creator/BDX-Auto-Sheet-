@@ -1,9 +1,90 @@
-<?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Centered safely at 62dp within 108dp so NO part of the logo or text is cropped by Android's launcher mask -->
-    <item
-        android:width="62dp"
-        android:height="62dp"
-        android:drawable="@drawable/app_logo"
-        android:gravity="center" />
-</layer-list>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- NO INNER BOX OR PEDESTAL: PURE BOLD 3D 'B' + LIGHTNING EMBLEM DIRECTLY ON BACKGROUND -->
+
+    <!-- 1. 3D DROP SHADOW UNDER THE 'B' MONOGRAM -->
+    <path
+        android:fillColor="#66020617"
+        android:pathData="M29,29 C29,25.5 31.8,23 35.5,23 L57,23 C69.5,23 77.5,29.5 77.5,39 C77.5,46 73,51 66.5,53.2 C74.5,55.5 79.5,61.8 79.5,70 C79.5,80.2 70.8,87 57.5,87 L35.5,87 C31.8,87 29,84.5 29,81 Z" />
+
+    <!-- 2. SCULPTED 3D 'B' UPPER LOOP -->
+    <path android:pathData="M41,22 L56.5,22 C69,22 77,28.2 77,37.8 C77,44.5 72.2,49.6 65.5,51.8 L46,51.8 L46,41.5 L55.5,41.5 C60.8,41.5 64.2,39.2 64.2,35.8 C64.2,32.4 60.8,30.2 55.5,30.2 L41,30.2 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="41"
+                android:startY="22"
+                android:endX="77"
+                android:endY="51"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFFFFFFF" />
+                <item android:offset="0.55" android:color="#FFE0F2FE" />
+                <item android:offset="1.0" android:color="#FF7DD3FC" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 3. SCULPTED 3D 'B' LOWER LOOP -->
+    <path android:pathData="M41,51.2 L58,51.2 C71,51.2 79,57.8 79,68 C79,78.5 70.2,85 56.5,85 L33.5,85 C30,85 27.5,82.5 27.5,79 L27.5,74.2 L56,74.2 C62,74.2 65.8,71.5 65.8,67.2 C65.8,63 62,60.2 56,60.2 L41,60.2 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="27"
+                android:startY="51"
+                android:endX="79"
+                android:endY="85"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFE0F2FE" />
+                <item android:offset="0.5" android:color="#FF7DD3FC" />
+                <item android:offset="1.0" android:color="#FF38BDF8" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 4. SCULPTED 3D 'B' LEFT VERTICAL PILLAR -->
+    <path android:pathData="M27.5,28 C27.5,24.5 30,22 33.5,22 L42.5,22 L42.5,85 L33.5,85 C30,85 27.5,82.5 27.5,79 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="27.5"
+                android:startY="22"
+                android:endX="42.5"
+                android:endY="85"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFFFFFFF" />
+                <item android:offset="0.45" android:color="#FFF0F9FF" />
+                <item android:offset="1.0" android:color="#FFBAE6FD" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 5. DEEP CONTRAST CUTOUT FOR LIGHTNING BOLT -->
+    <path
+        android:fillColor="#9906122E"
+        android:pathData="M62,17 L38,54.5 L53,54.5 L44,89 L76,47 L58.5,47 Z" />
+
+    <!-- 6. ELECTRIC GOLDEN-CYAN-WHITE HERO LIGHTNING BOLT -->
+    <path android:pathData="M60.5,18 L39.5,53 L54,53 L45.5,87 L74.5,48.5 L57.5,48.5 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="58"
+                android:startY="18"
+                android:endX="48"
+                android:endY="87"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFFFFFFF" />
+                <item android:offset="0.3" android:color="#FFFEF08A" />
+                <item android:offset="0.65" android:color="#FF38BDF8" />
+                <item android:offset="1.0" android:color="#FF00F5D4" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 7. PURE WHITE RAZOR CORE HIGHLIGHT INSIDE BOLT -->
+    <path
+        android:fillColor="#E6FFFFFF"
+        android:pathData="M59,23 L43,51.5 L54,51.5 L48,78 L69.5,50 L56.8,50 Z" />
+
+</vector>

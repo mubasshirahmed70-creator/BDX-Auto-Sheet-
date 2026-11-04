@@ -32,7 +32,7 @@ import android.widget.Toast
 import com.example.R
 import com.example.api.VoltxAllocatedNumber
 import com.example.api.VoltxApiResult
-import com.example.api.VoltxServiceRange
+import com.example.api.VoltxConsoleRangeItem
 import com.example.api.VoltxSmsClient
 import com.example.data.repository.VoltxSmsRepository
 import com.example.data.repository.VoltxSmsState
@@ -45,10 +45,10 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 /**
- * Ultra-compact, draggable 2-Step Floating Window for VOLTX SMS with:
+ * Ultra-compact, draggable 2-Step Floating Window for BDX SMS with:
  * - Full Minimize (—) & Maximize (tap floating mini-bubble) support with liquid spring morphing.
- * - Country Flag + Country Name displayed on the right side of every range row.
- * - Water-smooth staggered list animations and bouncy touch physics on every interactive control.
+ * - Live `/console` Range Extraction that automatically separates Instagram (`IG`) from Facebook (`FB`).
+ * - Custom `− / +` Stepper Counter so the user can allocate any desired quantity of numbers.
  */
 class FloatingVoltxSmsWindow(
     private val context: Context,
@@ -76,9 +76,10 @@ class FloatingVoltxSmsWindow(
     private var autoOtpPollJob: Job? = null
 
     private var currentStep: WindowStep = WindowStep.SELECT_RANGE
-    private var cachedServiceRanges: List<VoltxServiceRange> = emptyList()
+    private var cachedConsoleRanges: List<VoltxConsoleRangeItem> = emptyList()
     private var isFetchingRanges: Boolean = false
     private var isAllocatingNumbers: Boolean = false
+    private var desiredNumberCount: Int = 3
 
     // UI Containers
     private lateinit var stepTitleTv: TextView
@@ -90,9 +91,10 @@ class FloatingVoltxSmsWindow(
 
     private lateinit var numberStepContainer: LinearLayout
     private lateinit var selectedRangeLabelTv: TextView
-    private lateinit var take2Btn: TextView
-    private lateinit var take3Btn: TextView
-    private lateinit var take4Btn: TextView
+    private lateinit var minusCountBtn: TextView
+    private lateinit var countValueTv: TextView
+    private lateinit var plusCountBtn: TextView
+    private lateinit var takeNumbersBtn: TextView
     private lateinit var numbersListContainer: LinearLayout
     private lateinit var statusFooterTv: TextView
 
@@ -608,10 +610,10 @@ class FloatingVoltxSmsWindow(
         subHeaderRow.addView(clearBtn)
         numberStepContainer.addView(subHeaderRow)
 
-        // Number Allocation Row: 2, 3, or 4 Numbers buttons
+        // Number Allocation Row: Bento [ − ] [ Count ] [ + ] Stepper + [ Get X Num ] Action Button
         val allocButtonsRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
+            gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -620,23 +622,95 @@ class FloatingVoltxSmsWindow(
             }
         }
 
-        take2Btn = createCountOptionButton("2 Num", isPrimary = true) {
-            allocateNumbersCount(2)
-        }
-        take3Btn = createCountOptionButton("3 Num", isPrimary = true) {
-            allocateNumbersCount(3)
-        }
-        take4Btn = createCountOptionButton("4 Num", isPrimary = true) {
-            allocateNumbersCount(4)
+        val stepperCapsule = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dpToPx(3), dpToPx(3), dpToPx(3), dpToPx(3))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(10).toFloat()
+                setColor(theme.cardInt)
+                setStroke(dpToPx(1f), theme.cardBorderInt)
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                marginEnd = dpToPx(6)
+            }
         }
 
-        allocButtonsRow.addView(take2Btn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-            marginEnd = dpToPx(4)
-        })
-        allocButtonsRow.addView(take3Btn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-            marginEnd = dpToPx(4)
-        })
-        allocButtonsRow.addView(take4Btn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        minusCountBtn = TextView(context).apply {
+            text = "−"
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            val btnSize = dpToPx(26)
+            layoutParams = LinearLayout.LayoutParams(btnSize, btnSize)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(7).toFloat()
+                setColor(theme.elevatedInt)
+                setStroke(dpToPx(1f), theme.accentBrightInt)
+            }
+            FloatingWindowAnimator.applyLiquidTouch(this)
+            setOnClickListener {
+                if (desiredNumberCount > 1) {
+                    desiredNumberCount--
+                    updateStepperLabels()
+                    triggerHapticPulse()
+                    FloatingWindowAnimator.animatePopPulse(countValueTv)
+                }
+            }
+        }
+
+        countValueTv = TextView(context).apply {
+            text = desiredNumberCount.toString()
+            setTextColor(theme.accentBrightInt)
+            textSize = 12.5f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            minWidth = dpToPx(28)
+            setPadding(dpToPx(6), 0, dpToPx(6), 0)
+        }
+
+        plusCountBtn = TextView(context).apply {
+            text = "+"
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            val btnSize = dpToPx(26)
+            layoutParams = LinearLayout.LayoutParams(btnSize, btnSize)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(7).toFloat()
+                setColor(theme.elevatedInt)
+                setStroke(dpToPx(1f), theme.accentBrightInt)
+            }
+            FloatingWindowAnimator.applyLiquidTouch(this)
+            setOnClickListener {
+                if (desiredNumberCount < 50) {
+                    desiredNumberCount++
+                    updateStepperLabels()
+                    triggerHapticPulse()
+                    FloatingWindowAnimator.animatePopPulse(countValueTv)
+                }
+            }
+        }
+
+        stepperCapsule.addView(minusCountBtn)
+        stepperCapsule.addView(countValueTv)
+        stepperCapsule.addView(plusCountBtn)
+        allocButtonsRow.addView(stepperCapsule)
+
+        takeNumbersBtn = createCountOptionButton("Get $desiredNumberCount Num", isPrimary = true) {
+            allocateNumbersCount(desiredNumberCount)
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(32), 1f)
+        }
+        allocButtonsRow.addView(takeNumbersBtn)
         numberStepContainer.addView(allocButtonsRow)
 
         // Compact Scrollable List of Allocated Numbers & Inline OTP Badges
@@ -766,6 +840,15 @@ class FloatingVoltxSmsWindow(
         }
     }
 
+    private fun updateStepperLabels() {
+        if (::countValueTv.isInitialized) {
+            countValueTv.text = desiredNumberCount.toString()
+        }
+        if (::takeNumbersBtn.isInitialized) {
+            takeNumbersBtn.text = "Get $desiredNumberCount Num"
+        }
+    }
+
     private fun fetchLiveRanges(silent: Boolean) {
         val apiKey = repo.state.value.apiKey
         if (apiKey.isBlank()) {
@@ -779,17 +862,16 @@ class FloatingVoltxSmsWindow(
         if (isFetchingRanges) return
         isFetchingRanges = true
         loadingSpinner.visibility = View.VISIBLE
-        rangeHintTv.text = "Loading live ranges..."
+        rangeHintTv.text = "Loading console live hits..."
 
         scope.launch {
-            val res = VoltxSmsClient.getLiveAccessRanges(apiKey)
+            val res = VoltxSmsClient.getConsoleRanges(apiKey)
             isFetchingRanges = false
             loadingSpinner.visibility = View.GONE
 
             when (res) {
                 is VoltxApiResult.Success -> {
-                    // Always sort Facebook ranges to the top
-                    cachedServiceRanges = res.data.sortedByDescending { it.isFacebook }
+                    cachedConsoleRanges = res.data
                     populateRangesList()
                 }
                 is VoltxApiResult.Error -> {
@@ -820,43 +902,27 @@ class FloatingVoltxSmsWindow(
             return
         }
 
-        data class RangeEntry(
-            val sid: String,
-            val rawRange: String,
-            val cleanRid: String,
-            val isFb: Boolean,
-            val countryLabel: String
-        )
-
-        val entries = mutableListOf<RangeEntry>()
-        val sortedServices = cachedServiceRanges.sortedByDescending { it.isFacebook }
-        for (svc in sortedServices) {
-            for (r in svc.ranges) {
-                val clean = VoltxSmsClient.cleanRangeId(r)
-                if (clean.isNotEmpty()) {
-                    val country = VoltxSmsClient.detectCountryFromRange(r)
-                    entries.add(RangeEntry(svc.sid, r, clean, svc.isFacebook, country))
-                }
-            }
-        }
+        val entries = cachedConsoleRanges.toMutableList()
 
         val savedRid = VoltxSmsClient.cleanRangeId(repo.state.value.selectedRange)
         if (entries.isEmpty() && savedRid.isNotEmpty()) {
             entries.add(
-                RangeEntry(
-                    sid = "Saved",
+                VoltxConsoleRangeItem(
                     rawRange = savedRid,
                     cleanRid = savedRid,
-                    isFb = true,
+                    resolvedService = "FACEBOOK",
+                    hitCount = 1,
+                    lastHitTime = 0L,
+                    sampleMessage = "",
                     countryLabel = VoltxSmsClient.detectCountryFromRange(savedRid)
                 )
             )
         }
 
         if (entries.isEmpty()) {
-            rangeHintTv.text = "Tap refresh icon to load active ranges"
+            rangeHintTv.text = "Tap refresh icon to load console ranges"
             val emptyTv = TextView(context).apply {
-                text = if (isFetchingRanges) "Loading ranges..." else "কোনো লাইভ রেঞ্জ পাওয়া যায়নি। ওপরে রিফ্রেশ বাটনে ট্যাপ করুন।"
+                text = if (isFetchingRanges) "Loading console hits..." else "কোনো লাইভ হিট রেঞ্জ পাওয়া যায়নি। ওপরে রিফ্রেশ আইকনে ট্যাপ করুন।"
                 setTextColor(Color.parseColor("#A1A1AA"))
                 textSize = 10.5f
                 setPadding(dpToPx(6), dpToPx(8), dpToPx(6), dpToPx(8))
@@ -865,14 +931,19 @@ class FloatingVoltxSmsWindow(
             return
         }
 
-        val fbCount = entries.count { it.isFb }
-        rangeHintTv.text = if (fbCount > 0) {
-            "Facebook ($fbCount) prioritized • Tap a range:"
-        } else {
-            "Active Ranges (${entries.size}) • Tap a range:"
+        val fbCount = entries.count { it.isFacebook }
+        val igCount = entries.count { it.isInstagram }
+        rangeHintTv.text = buildString {
+            append("Console: ")
+            append("FB ($fbCount)")
+            if (igCount > 0) append(" • IG ($igCount)")
+            append(" • Tap range:")
         }
 
         val theme = com.example.ui.theme.AppThemeManager.current
+        val igColorInt = Color.parseColor("#E1306C")
+        val igSoftBgInt = Color.parseColor("#2A1221")
+
         entries.forEachIndexed { index, entry ->
             val isSelected = entry.cleanRid == savedRid
             val row = LinearLayout(context).apply {
@@ -885,7 +956,8 @@ class FloatingVoltxSmsWindow(
                     setColor(
                         when {
                             isSelected -> theme.accentSoftBgInt
-                            entry.isFb -> theme.elevatedInt
+                            entry.isFacebook -> theme.elevatedInt
+                            entry.isInstagram -> igSoftBgInt
                             else -> theme.cardInt
                         }
                     )
@@ -893,7 +965,8 @@ class FloatingVoltxSmsWindow(
                         dpToPx(1f),
                         when {
                             isSelected -> theme.accentBrightInt
-                            entry.isFb -> theme.accentInt
+                            entry.isFacebook -> theme.accentInt
+                            entry.isInstagram -> igColorInt
                             else -> theme.cardBorderInt
                         }
                     )
@@ -914,9 +987,9 @@ class FloatingVoltxSmsWindow(
                 }
             }
 
-            // Left Service Badge Pill ("FB" or Service ID)
+            // Left Service Badge Pill ("FB", "IG", or Service ID)
             val badgeTv = TextView(context).apply {
-                text = if (entry.isFb) "FB" else entry.sid.take(4).uppercase()
+                text = entry.serviceShortBadge
                 setTextColor(Color.WHITE)
                 textSize = 8.5f
                 typeface = Typeface.DEFAULT_BOLD
@@ -924,7 +997,13 @@ class FloatingVoltxSmsWindow(
                 background = GradientDrawable().apply {
                     shape = GradientDrawable.RECTANGLE
                     cornerRadius = dpToPx(5).toFloat()
-                    setColor(if (entry.isFb) theme.accentInt else theme.cardBorderInt)
+                    setColor(
+                        when {
+                            entry.isFacebook -> theme.accentInt
+                            entry.isInstagram -> igColorInt
+                            else -> theme.cardBorderInt
+                        }
+                    )
                 }
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -935,9 +1014,9 @@ class FloatingVoltxSmsWindow(
             }
             row.addView(badgeTv)
 
-            // Center Range Digits
+            // Center Range Digits (+ hit count if > 1)
             val rangeTv = TextView(context).apply {
-                text = entry.rawRange
+                text = if (entry.hitCount > 1) "${entry.rawRange} (${entry.hitCount})" else entry.rawRange
                 setTextColor(Color.WHITE)
                 textSize = 11f
                 typeface = Typeface.DEFAULT_BOLD
@@ -980,7 +1059,7 @@ class FloatingVoltxSmsWindow(
     private fun allocateNumbersCount(count: Int) {
         val apiKey = repo.state.value.apiKey
         if (apiKey.isBlank()) {
-            Toast.makeText(context, "App-এর Setup থেকে VOLTX API Key সেট করুন!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "App-এর Setup থেকে BDX SMS API Key সেট করুন!", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -994,7 +1073,7 @@ class FloatingVoltxSmsWindow(
         if (isAllocatingNumbers) return
         isAllocatingNumbers = true
         loadingSpinner.visibility = View.VISIBLE
-        statusFooterTv.text = "⏳ Getting $count numbers from $cleanRid..."
+        statusFooterTv.text = "Getting $count numbers from $cleanRid..."
         setAllocButtonsEnabled(false)
 
         scope.launch {
@@ -1023,23 +1102,23 @@ class FloatingVoltxSmsWindow(
 
             if (successCount > 0) {
                 triggerHapticPulse()
-                statusFooterTv.text = "✅ Added $successCount number(s) • Tap number to copy"
+                statusFooterTv.text = "Added $successCount number(s) • Tap number to copy"
             } else {
-                statusFooterTv.text = "⚠️ ${lastError ?: "Failed"}"
+                statusFooterTv.text = lastError ?: "Failed"
                 Toast.makeText(context, lastError ?: "Failed to allocate number", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
     private fun setAllocButtonsEnabled(enabled: Boolean) {
-        if (!::take2Btn.isInitialized) return
-        take2Btn.isEnabled = enabled
-        take3Btn.isEnabled = enabled
-        take4Btn.isEnabled = enabled
+        if (!::takeNumbersBtn.isInitialized) return
+        minusCountBtn.isEnabled = enabled
+        plusCountBtn.isEnabled = enabled
+        takeNumbersBtn.isEnabled = enabled
         val a = if (enabled) 1f else 0.5f
-        take2Btn.alpha = a
-        take3Btn.alpha = a
-        take4Btn.alpha = a
+        minusCountBtn.alpha = a
+        plusCountBtn.alpha = a
+        takeNumbersBtn.alpha = a
     }
 
     private fun startAutoOtpPolling() {
@@ -1093,7 +1172,7 @@ class FloatingVoltxSmsWindow(
 
         if (numbers.isEmpty()) {
             val emptyTv = TextView(context).apply {
-                text = "ওপরে 2 Num, 3 Num বা 4 Num বাটনে ক্লিক করে নাম্বার নিন।"
+                text = "ওপরে [ − / + ] কাউন্টার ও Get Num বাটনে ক্লিক করে নাম্বার নিন।"
                 setTextColor(Color.parseColor("#A1A1AA"))
                 textSize = 10f
                 gravity = Gravity.CENTER

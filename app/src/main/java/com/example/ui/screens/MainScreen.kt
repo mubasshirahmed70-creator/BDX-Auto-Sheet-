@@ -208,14 +208,24 @@ private fun BentoTopHudHeader(
         ) {
             Surface(
                 shape = RoundedCornerShape(14.dp),
-                color = theme.cardCompose,
-                border = BorderStroke(1.5.dp, theme.accentBrightCompose),
-                shadowElevation = 6.dp,
+                color = Color.Transparent,
+                border = BorderStroke(
+                    1.2.dp,
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF7DD3FC),
+                            Color(0xFF38BDF8),
+                            Color(0xFF2563EB)
+                        )
+                    )
+                ),
+                shadowElevation = 8.dp,
                 modifier = Modifier.size(48.dp)
             ) {
                 Image(
-                    painter = painterResource(R.drawable.app_logo),
+                    painter = painterResource(R.drawable.ic_bdx_brand_logo),
                     contentDescription = "BDX Auto Sheet Logo",
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(RoundedCornerShape(14.dp))
@@ -223,13 +233,32 @@ private fun BentoTopHudHeader(
             }
 
             Column {
-                Text(
-                    text = "BDX AUTO SHEET",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.1.sp,
-                    color = Color.White
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "BDX AUTO SHEET",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.0.sp,
+                        color = Color.White
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(5.dp),
+                        color = Color(0xFF38BDF8).copy(alpha = 0.18f),
+                        border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.65f))
+                    ) {
+                        Text(
+                            text = "PRO",
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.7.sp,
+                            color = Color(0xFF7DD3FC),
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                        )
+                    }
+                }
                 Text(
                     text = "PRO AUTOMATION SUITE",
                     style = MaterialTheme.typography.labelSmall,

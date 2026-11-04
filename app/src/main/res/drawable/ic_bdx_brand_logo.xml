@@ -1,0 +1,151 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 1. 100% FULL-BLEED VIBRANT ROYAL BLUE TO DEEP SAPPHIRE BASE (ZERO MARGIN) -->
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="0"
+                android:startY="0"
+                android:endX="108"
+                android:endY="108"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF00C6FF" />
+                <item android:offset="0.38" android:color="#FF0062FF" />
+                <item android:offset="0.78" android:color="#FF1E1B4B" />
+                <item android:offset="1.0" android:color="#FF090D24" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 2. FULL-BLEED TOP-LEFT ELECTRIC CYAN AURORA GLOW -->
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:centerX="22"
+                android:centerY="18"
+                android:gradientRadius="78"
+                android:type="radial">
+                <item android:offset="0.0" android:color="#9938BDF8" />
+                <item android:offset="0.55" android:color="#332563EB" />
+                <item android:offset="1.0" android:color="#00000000" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 3. FULL-BLEED BOTTOM-RIGHT VIOLET-INDIGO DEPTH GLOW -->
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:centerX="92"
+                android:centerY="92"
+                android:gradientRadius="72"
+                android:type="radial">
+                <item android:offset="0.0" android:color="#887C3AED" />
+                <item android:offset="0.55" android:color="#334F46E5" />
+                <item android:offset="1.0" android:color="#00000000" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 4. SOFT TOP GLOSSY SHEEN WAVE ACROSS FULL CANVAS -->
+    <path android:pathData="M0,0 L108,0 L108,42 Q54,60 0,46 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="54"
+                android:startY="0"
+                android:endX="54"
+                android:endY="56"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#40FFFFFF" />
+                <item android:offset="0.6" android:color="#12FFFFFF" />
+                <item android:offset="1.0" android:color="#00FFFFFF" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 5. 3D DROP SHADOW DIRECTLY UNDER THE LARGE 'B' + LIGHTNING EMBLEM -->
+    <path
+        android:fillColor="#66020617"
+        android:pathData="M20,21 C20,16.5 23.5,13 28,13 L59,13 C75.5,13 86,21.5 86,34.5 C86,43.5 80,50.5 71.5,53.5 C82.5,56.5 89,65 89,76 C89,89.5 77.5,98 59.5,98 L28,98 C23.5,98 20,94.5 20,90 Z" />
+
+    <!-- 6. LARGE FULL-SCALE 3D 'B' UPPER LOOP (FILLING CANVAS CLEANLY) -->
+    <path android:pathData="M36,14 L58,14 C74.5,14 85,22 85,34.5 C85,43.5 79,50 70,52.8 L44,52.8 L44,39.5 L56.5,39.5 C63.5,39.5 68,36.5 68,32 C68,27.5 63.5,24.5 56.5,24.5 L36,24.5 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="36"
+                android:startY="14"
+                android:endX="85"
+                android:endY="52"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFFFFFFF" />
+                <item android:offset="0.55" android:color="#FFE0F2FE" />
+                <item android:offset="1.0" android:color="#FF7DD3FC" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 7. LARGE FULL-SCALE 3D 'B' LOWER LOOP -->
+    <path android:pathData="M36,52 L60,52 C77,52 88,60.5 88,74 C88,87.5 76.5,95 58.5,95 L26,95 C21.5,95 18,91.5 18,87 L18,81 L57.5,81 C65.5,81 70.5,77.5 70.5,72 C70.5,66.5 65.5,63.5 57.5,63.5 L36,63.5 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="18"
+                android:startY="52"
+                android:endX="88"
+                android:endY="95"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFE0F2FE" />
+                <item android:offset="0.5" android:color="#FF7DD3FC" />
+                <item android:offset="1.0" android:color="#FF38BDF8" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 8. LARGE SCULPTED 3D 'B' LEFT VERTICAL PILLAR -->
+    <path android:pathData="M18,22 C18,17.5 21.5,14 26,14 L38,14 L38,95 L26,95 C21.5,95 18,91.5 18,87 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="18"
+                android:startY="14"
+                android:endX="38"
+                android:endY="95"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFFFFFFF" />
+                <item android:offset="0.45" android:color="#FFF0F9FF" />
+                <item android:offset="1.0" android:color="#FFBAE6FD" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 9. DEEP CONTRAST CUTOUT FOR LIGHTNING BOLT -->
+    <path
+        android:fillColor="#9906122E"
+        android:pathData="M65,8 L33,57 L53,57 L41,101 L83,46 L60,46 Z" />
+
+    <!-- 10. ELECTRIC GOLDEN-CYAN-WHITE HERO LIGHTNING BOLT -->
+    <path android:pathData="M63,9 L35,55 L54,55 L43,98 L81,48 L59,48 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="58"
+                android:startY="9"
+                android:endX="48"
+                android:endY="98"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFFFFFFF" />
+                <item android:offset="0.3" android:color="#FFFEF08A" />
+                <item android:offset="0.65" android:color="#FF38BDF8" />
+                <item android:offset="1.0" android:color="#FF00F5D4" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 11. PURE WHITE RAZOR CORE HIGHLIGHT INSIDE BOLT -->
+    <path
+        android:fillColor="#E6FFFFFF"
+        android:pathData="M61,15 L39,53 L54,53 L46,87 L75,50 L58,50 Z" />
+
+</vector>
